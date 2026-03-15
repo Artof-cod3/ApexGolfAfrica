@@ -133,7 +133,21 @@ const App: React.FC = () => {
           />
         }
       />
-      <Route path="/super-admin" element={<SuperAdmin admins={admins} setAdmins={setAdmins} />} />
+      <Route
+        path="/super-admin"
+        element={
+          <SuperAdmin
+            admins={admins}
+            setAdmins={setAdmins}
+            bookings={bookings}
+            setBookings={setBookings}
+            clubs={clubs}
+            setClubs={setClubs}
+            caddies={caddies}
+            setCaddies={setCaddies}
+          />
+        }
+      />
     </Routes>
   );
 };

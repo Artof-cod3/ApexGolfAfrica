@@ -15,6 +15,14 @@ export interface Caddie {
   topRated: boolean;
   initials: string;
   color: string;
+  phone?: string;
+  email?: string;
+  idNumber?: string;
+  address?: string;
+  age?: number;
+  poBox?: string;
+  organizationClubId?: number;
+  createdAt?: string;
 }
 
 export interface AdminPermissions {
@@ -29,6 +37,7 @@ export interface AdminUser {
   name: string;
   email: string;
   password: string;
+  mustChangePassword?: boolean;
   role: 'super-admin' | 'admin';
   permissions: AdminPermissions;
 }
