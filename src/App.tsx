@@ -4,6 +4,8 @@ import { Routes, Route } from 'react-router-dom';
 import Home from './pages/Home.tsx';
 import Admin from './pages/Admin.tsx';
 import Client from './pages/Client.tsx';
+import Help from './pages/Help.tsx';
+import About from './pages/About.tsx';
 import SuperAdmin from './pages/SuperAdmin.tsx';
 import type { Booking } from './types/booking';
 import type { AdminUser, Caddie, Club } from './types/entities';
@@ -119,6 +121,8 @@ const App: React.FC = () => {
         element={<Home bookings={bookings} setBookings={setBookings} clubs={clubs} caddies={caddies} />}
       />
       <Route path="/client" element={<Client clubs={clubs} caddies={caddies} />} />
+      <Route path="/help" element={<Help />} />
+      <Route path="/about" element={<About />} />
       <Route
         path="/admin"
         element={

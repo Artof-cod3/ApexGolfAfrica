@@ -122,9 +122,9 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
 
   if (showSuccess) {
     return (
-      <div className="w-full max-w-2xl mx-auto bg-white rounded-xl overflow-hidden shadow-xl flex flex-col">
-        <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center text-center pt-16">
-          <div className="w-24 h-24 bg-[#0f281e] rounded-full flex items-center justify-center mb-6 shadow-xl relative">
+      <div className="mx-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-4xl border border-[#e9dfca] bg-white shadow-2xl">
+        <div className="flex flex-1 flex-col items-center p-8 pt-16 text-center">
+          <div className="relative mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-[#0f281e] shadow-xl">
             <div className="absolute inset-0 bg-[#c5a059] rounded-full opacity-20 animate-ping"></div>
             <span className="text-3xl">⛳</span>
           </div>
@@ -154,9 +154,9 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto bg-white rounded-xl overflow-hidden shadow-xl flex flex-col">
+    <div className="mx-auto flex w-full max-w-6xl flex-col overflow-hidden">
       {/* Hero */}
-      <div className="bg-[#0f281e] text-white px-8 py-12 relative overflow-hidden">
+      <div className="relative mx-4 overflow-hidden rounded-4xl px-8 py-14 text-white shadow-2xl md:mx-0 md:px-12 md:py-20">
         <div
           className="absolute inset-0 pointer-events-none bg-center bg-cover"
           style={{
@@ -165,47 +165,44 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
           }}
           aria-hidden="true"
         ></div>
-        <div className="absolute inset-0 pointer-events-none bg-[#0f281e]/70" aria-hidden="true"></div>
-        <div className="absolute inset-0 pointer-events-none bg-linear-to-br from-green-900/40 to-black/30" aria-hidden="true"></div>
+        <div className="absolute inset-0 pointer-events-none bg-[#1c2b24]/75" aria-hidden="true"></div>
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(201,169,98,0.24),transparent_35%)]" aria-hidden="true"></div>
         <div className="relative z-10 max-w-4xl mx-auto">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="font-serif italic text-2xl text-[#c5a059]">ApexGolf</span>
-            <span className="text-sm uppercase tracking-widest">Africa</span>
-          </div>
-          <h2 className="font-serif text-5xl leading-tight mb-4">Book Your <span className="text-[#c5a059] italic">Apex</span> Experience</h2>
-          <p className="text-gray-300 text-base leading-relaxed max-w-2xl">
+          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.35em] text-[#c9a962]">ApexGolf Africa</p>
+          <h2 className="mb-4 font-serif text-4xl leading-tight md:text-6xl">Book Your <span className="italic text-[#e5d4a1]">Apex</span> Experience</h2>
+          <p className="max-w-2xl text-base leading-relaxed text-gray-300 md:text-lg">
             Certified caddies · Equipment hire · Professional photography — all in one booking
           </p>
         </div>
       </div>
 
       {/* Stepper */}
-      <div className="bg-white px-8 py-6 shadow-sm">
-        <div className="flex items-center justify-between text-xs font-medium text-gray-500 uppercase tracking-wider max-w-4xl mx-auto">
+      <div className="px-6 py-10">
+        <div className="mx-auto flex max-w-4xl items-center justify-between text-xs font-medium uppercase tracking-wider text-gray-500">
           <div className="flex flex-col items-center gap-1 w-1/3">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all ${step >= 1 ? 'bg-[#0f281e] text-white' : 'bg-gray-200 text-gray-400'}`}>1</div>
+            <div className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-bold transition-all ${step >= 1 ? 'bg-[linear-gradient(135deg,#1c2b24_0%,#2d4a3e_100%)] text-white shadow-[0_10px_30px_-10px_rgba(28,43,36,0.5)]' : 'bg-gray-200 text-gray-400'}`}>1</div>
             <span className={step >= 1 ? 'text-[#0f281e]' : ''}>Club & Date</span>
           </div>
-          <div className="h-px bg-gray-200 flex-1 mb-4"></div>
+          <div className="mb-4 h-px flex-1 bg-gray-200"></div>
           <div className="flex flex-col items-center gap-1 w-1/3">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all ${step >= 2 ? 'bg-[#0f281e] text-white' : 'bg-gray-200 text-gray-400'} ${step > 2 ? 'bg-[#c5a059]' : ''}`}>2</div>
+            <div className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-bold transition-all ${step >= 2 ? 'bg-[linear-gradient(135deg,#1c2b24_0%,#2d4a3e_100%)] text-white shadow-[0_10px_30px_-10px_rgba(28,43,36,0.5)]' : 'bg-gray-200 text-gray-400'} ${step > 2 ? 'ring-4 ring-[#c9a962]/15' : ''}`}>2</div>
             <span className={step >= 2 ? 'text-[#0f281e]' : ''}>Choose Caddie</span>
           </div>
-          <div className="h-px bg-gray-200 flex-1 mb-4"></div>
+          <div className="mb-4 h-px flex-1 bg-gray-200"></div>
           <div className="flex flex-col items-center gap-1 w-1/3">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all ${step >= 3 ? 'bg-[#0f281e] text-white' : 'bg-gray-200 text-gray-400'}`}>3</div>
+            <div className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-bold transition-all ${step >= 3 ? 'bg-[linear-gradient(135deg,#1c2b24_0%,#2d4a3e_100%)] text-white shadow-[0_10px_30px_-10px_rgba(28,43,36,0.5)]' : 'bg-gray-200 text-gray-400'}`}>3</div>
             <span className={step >= 3 ? 'text-[#0f281e]' : ''}>Equipment</span>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 p-8">
+      <div className="flex-1 overflow-y-auto px-4 pb-8 md:px-0">
         
         {/* Step 1: Club & Date */}
         {step === 1 && (
           <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
-            <div className="bg-white rounded-xl p-8 shadow-sm">
+            <div className="rounded-[28px] border border-gray-100 bg-white p-8 shadow-sm">
               <div className="flex items-start gap-4 mb-8">
                 <div className="w-12 h-12 rounded-lg bg-yellow-50 flex items-center justify-center text-2xl">🏌️</div>
                 <div>
@@ -221,7 +218,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
                     <div 
                       key={c.id}
                       onClick={() => setClubId(c.id)}
-                      className={`cursor-pointer border rounded-xl p-5 flex items-start gap-4 transition hover:shadow-md relative overflow-hidden ${clubId === c.id ? 'border-[#c5a059] bg-yellow-50/50' : 'border-gray-100'}`}
+                      className={`relative overflow-hidden rounded-2xl border-2 p-5 flex items-start gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${clubId === c.id ? 'border-[#c9a962] bg-[linear-gradient(135deg,#faf8f5_0%,#f5f3ef_100%)] shadow-[0_0_0_4px_rgba(201,169,98,0.1)]' : 'border-gray-100 bg-white'}`}
                     >
                       <div className="mt-1 text-2xl text-[#c5a059]">📍</div>
                       <div className="flex-1">
@@ -237,7 +234,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-8 shadow-sm">
+            <div className="rounded-[28px] border border-gray-100 bg-white p-8 shadow-sm">
               <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6 text-center">Date, Time & Players</h4>
               
               <div className="mb-6">
@@ -246,16 +243,16 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
                   type="date" 
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg p-4 text-base focus:outline-none focus:border-[#c5a059]"
+                  className="w-full rounded-xl border-2 border-gray-200 p-4 text-base focus:outline-none focus:border-[#c9a962] focus:ring-4 focus:ring-[#c9a962]/10"
                 />
               </div>
 
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">NUMBER OF PLAYERS</label>
-                <div className="flex items-center border border-gray-200 rounded-lg w-32">
-                  <button onClick={() => setPlayers(Math.max(1, players - 1))} className="px-3 py-2 text-gray-500 hover:bg-gray-50">-</button>
+                <div className="flex w-32 items-center rounded-xl border-2 border-gray-200 bg-white">
+                  <button onClick={() => setPlayers(Math.max(1, players - 1))} className="px-3 py-2 text-gray-500 transition hover:bg-[#1c2b24] hover:text-white">-</button>
                   <input type="text" value={players} readOnly className="w-full text-center text-gray-800 font-medium outline-none text-sm"/>
-                  <button onClick={() => setPlayers(Math.min(4, players + 1))} className="px-3 py-2 text-gray-500 hover:bg-gray-50">+</button>
+                  <button onClick={() => setPlayers(Math.min(4, players + 1))} className="px-3 py-2 text-gray-500 transition hover:bg-[#1c2b24] hover:text-white">+</button>
                 </div>
               </div>
 
@@ -266,7 +263,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
                     <button 
                       key={t}
                       onClick={() => setTime(t)}
-                      className={`px-6 py-3 rounded-lg text-sm font-medium border transition ${time === t ? 'bg-[#c5a059] border-[#c5a059] text-white' : 'border-gray-200 text-gray-600 hover:border-[#c5a059]'}`}
+                      className={`rounded-lg border px-6 py-3 text-sm font-medium transition-all ${time === t ? 'border-[#1c2b24] bg-[linear-gradient(135deg,#1c2b24_0%,#2d4a3e_100%)] text-white shadow-md' : 'border-gray-200 text-gray-600 hover:scale-105 hover:bg-[#1c2b24] hover:text-white'}`}
                     >
                       {t}
                     </button>
