@@ -3,6 +3,95 @@ import { supabase } from '../lib/supabase';
 import type { Booking } from '../types/booking';
 import type { Club, Caddie, AdminUser } from '../types/entities';
 
+export type AdminLoginHistoryItem = {
+  id: number;
+  adminId: number | null;
+  email: string;
+  role: 'admin' | 'super-admin';
+  loginAt: string;
+};
+
+export type DeletionRequestEntityType = 'booking' | 'club' | 'caddie';
+
+export type DeletionRequestItem = {
+  id: number;
+  entityType: DeletionRequestEntityType;
+  entityId: number;
+  entityLabel: string;
+  requestedByEmail: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewedByEmail: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+};
+
+export type AuditTrailEntityType =
+  | 'booking'
+  | 'club'
+  | 'caddie'
+  | 'admin_user'
+  | 'deletion_request'
+  | 'auth'
+  | 'system';
+
+export type AuditTrailItem = {
+  id: number;
+  actorEmail: string;
+  actorRole: 'admin' | 'super-admin';
+  action: string;
+  entityType: AuditTrailEntityType;
+  entityId: number | null;
+  entityLabel: string | null;
+  details: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+const TEMP_PASSWORD_PREFIX = 'TEMP::';
+
+const isTemporaryPassword = (password: string | null | undefined) =>
+  typeof password === 'string' && password.startsWith(TEMP_PASSWORD_PREFIX);
+
+const stripTemporaryPrefix = (password: string | null | undefined) =>
+  isTemporaryPassword(password)
+    ? (password as string).slice(TEMP_PASSWORD_PREFIX.length)
+    : (password ?? '');
+
+const mapAdminRowToEntity = (admin: any): AdminUser => ({
+  id: admin.id,
+  name: admin.name,
+  email: admin.email,
+  password: stripTemporaryPrefix(admin.password),
+  mustChangePassword: isTemporaryPassword(admin.password),
+  role: admin.role as 'admin' | 'super-admin',
+  permissions: {
+    canEditBookings: admin.can_edit_bookings,
+    canManageClubs: admin.can_manage_clubs,
+    canManageCaddies: admin.can_manage_caddies,
+    canManageClubRates: admin.can_manage_club_rates,
+  },
+});
+
+const mapCaddieRowToEntity = (caddie: any): Caddie => ({
+  id: caddie.id,
+  name: caddie.name,
+  specialty: caddie.specialty,
+  exp: caddie.experience,
+  rating: caddie.rating,
+  rounds: caddie.rounds,
+  topRated: caddie.top_rated,
+  initials: caddie.initials,
+  color: caddie.color,
+  phone: caddie.phone ?? undefined,
+  email: caddie.email ?? undefined,
+  idNumber: caddie.id_number ?? undefined,
+  address: caddie.address ?? undefined,
+  age: caddie.age ?? undefined,
+  poBox: caddie.po_box ?? undefined,
+  organizationClubId: caddie.organization_club_id ?? undefined,
+  createdAt: caddie.created_at ?? undefined,
+});
+
 // ============================================
 // CLUBS
 // ============================================
@@ -98,23 +187,36 @@ export async function fetchCaddies(): Promise<Caddie[]> {
     return [];
   }
 
-  return data.map((caddie) => ({
-    id: caddie.id,
-    name: caddie.name,
-    specialty: caddie.specialty,
-    exp: caddie.experience,
-    rating: caddie.rating,
-    rounds: caddie.rounds,
-    topRated: caddie.top_rated,
-    initials: caddie.initials,
-    color: caddie.color,
-  }));
+  return data.map(mapCaddieRowToEntity);
 }
 
 export async function createCaddie(caddie: Omit<Caddie, 'id'>): Promise<Caddie | null> {
-  const { data, error } = await supabase
+  const payload: Record<string, unknown> = {
+    name: caddie.name,
+    specialty: caddie.specialty,
+    experience: caddie.exp,
+    rating: caddie.rating,
+    rounds: caddie.rounds,
+    top_rated: caddie.topRated,
+    initials: caddie.initials,
+    color: caddie.color,
+    phone: caddie.phone ?? null,
+    email: caddie.email ?? null,
+    id_number: caddie.idNumber ?? null,
+    address: caddie.address ?? null,
+    age: caddie.age ?? null,
+    po_box: caddie.poBox ?? null,
+    organization_club_id: caddie.organizationClubId ?? null,
+  };
+
+  let { data, error } = await supabase
     .from('caddies')
-    .insert({
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) {
+    const fallbackPayload = {
       name: caddie.name,
       specialty: caddie.specialty,
       experience: caddie.exp,
@@ -123,26 +225,74 @@ export async function createCaddie(caddie: Omit<Caddie, 'id'>): Promise<Caddie |
       top_rated: caddie.topRated,
       initials: caddie.initials,
       color: caddie.color,
-    })
-    .select()
-    .single();
+    };
+
+    const fallbackResult = await supabase
+      .from('caddies')
+      .insert(fallbackPayload)
+      .select()
+      .single();
+
+    data = fallbackResult.data;
+    error = fallbackResult.error;
+  }
 
   if (error) {
     console.error('Error creating caddie:', error);
     return null;
   }
 
-  return {
-    id: data.id,
-    name: data.name,
-    specialty: data.specialty,
-    exp: data.experience,
-    rating: data.rating,
-    rounds: data.rounds,
-    topRated: data.top_rated,
-    initials: data.initials,
-    color: data.color,
-  };
+  return mapCaddieRowToEntity(data);
+}
+
+export async function updateCaddie(id: number, updates: Partial<Caddie>): Promise<boolean> {
+  const payload: Record<string, unknown> = {};
+  if (updates.name !== undefined) payload.name = updates.name;
+  if (updates.specialty !== undefined) payload.specialty = updates.specialty;
+  if (updates.exp !== undefined) payload.experience = updates.exp;
+  if (updates.rating !== undefined) payload.rating = updates.rating;
+  if (updates.rounds !== undefined) payload.rounds = updates.rounds;
+  if (updates.topRated !== undefined) payload.top_rated = updates.topRated;
+  if (updates.initials !== undefined) payload.initials = updates.initials;
+  if (updates.color !== undefined) payload.color = updates.color;
+  if (updates.phone !== undefined) payload.phone = updates.phone;
+  if (updates.email !== undefined) payload.email = updates.email;
+  if (updates.idNumber !== undefined) payload.id_number = updates.idNumber;
+  if (updates.address !== undefined) payload.address = updates.address;
+  if (updates.age !== undefined) payload.age = updates.age;
+  if (updates.poBox !== undefined) payload.po_box = updates.poBox;
+  if (updates.organizationClubId !== undefined) payload.organization_club_id = updates.organizationClubId;
+
+  let { error } = await supabase
+    .from('caddies')
+    .update(payload)
+    .eq('id', id);
+
+  if (error) {
+    const fallbackPayload: Record<string, unknown> = {};
+    if (updates.name !== undefined) fallbackPayload.name = updates.name;
+    if (updates.specialty !== undefined) fallbackPayload.specialty = updates.specialty;
+    if (updates.exp !== undefined) fallbackPayload.experience = updates.exp;
+    if (updates.rating !== undefined) fallbackPayload.rating = updates.rating;
+    if (updates.rounds !== undefined) fallbackPayload.rounds = updates.rounds;
+    if (updates.topRated !== undefined) fallbackPayload.top_rated = updates.topRated;
+    if (updates.initials !== undefined) fallbackPayload.initials = updates.initials;
+    if (updates.color !== undefined) fallbackPayload.color = updates.color;
+
+    const fallbackResult = await supabase
+      .from('caddies')
+      .update(fallbackPayload)
+      .eq('id', id);
+
+    error = fallbackResult.error;
+  }
+
+  if (error) {
+    console.error('Error updating caddie:', error);
+    return false;
+  }
+
+  return true;
 }
 
 export async function deleteCaddie(id: number): Promise<boolean> {
@@ -174,19 +324,7 @@ export async function fetchAdminUsers(): Promise<AdminUser[]> {
     return [];
   }
 
-  return data.map((admin) => ({
-    id: admin.id,
-    name: admin.name,
-    email: admin.email,
-    password: admin.password,
-    role: admin.role as 'admin' | 'super-admin',
-    permissions: {
-      canEditBookings: admin.can_edit_bookings,
-      canManageClubs: admin.can_manage_clubs,
-      canManageCaddies: admin.can_manage_caddies,
-      canManageClubRates: admin.can_manage_club_rates,
-    },
-  }));
+  return data.map(mapAdminRowToEntity);
 }
 
 export async function createAdminUser(admin: Omit<AdminUser, 'id'>): Promise<AdminUser | null> {
@@ -210,19 +348,7 @@ export async function createAdminUser(admin: Omit<AdminUser, 'id'>): Promise<Adm
     return null;
   }
 
-  return {
-    id: data.id,
-    name: data.name,
-    email: data.email,
-    password: data.password,
-    role: data.role,
-    permissions: {
-      canEditBookings: data.can_edit_bookings,
-      canManageClubs: data.can_manage_clubs,
-      canManageCaddies: data.can_manage_caddies,
-      canManageClubRates: data.can_manage_club_rates,
-    },
-  };
+  return mapAdminRowToEntity(data);
 }
 
 export async function updateAdminUser(id: number, updates: Partial<AdminUser>): Promise<boolean> {
@@ -274,10 +400,18 @@ export async function loginAdmin(email: string, password: string): Promise<Admin
     .from('admin_users')
     .select('*')
     .eq('email', email)
-    .eq('password', password)
     .single();
 
   if (error || !data) {
+    return null;
+  }
+
+  const dbPassword = data.password as string;
+  const validPassword =
+    dbPassword === password ||
+    (isTemporaryPassword(dbPassword) && stripTemporaryPrefix(dbPassword) === password);
+
+  if (!validPassword) {
     return null;
   }
 
@@ -288,19 +422,201 @@ export async function loginAdmin(email: string, password: string): Promise<Admin
     role: data.role,
   });
 
-  return {
-    id: data.id,
-    name: data.name,
-    email: data.email,
-    password: data.password,
-    role: data.role,
-    permissions: {
-      canEditBookings: data.can_edit_bookings,
-      canManageClubs: data.can_manage_clubs,
-      canManageCaddies: data.can_manage_caddies,
-      canManageClubRates: data.can_manage_club_rates,
-    },
-  };
+  return mapAdminRowToEntity(data);
+}
+
+export async function getAdminByEmail(email: string): Promise<AdminUser | null> {
+  const { data, error } = await supabase
+    .from('admin_users')
+    .select('*')
+    .eq('email', email.toLowerCase())
+    .single();
+
+  if (error || !data) return null;
+  return mapAdminRowToEntity(data);
+}
+
+export async function loginWithGoogle(redirectPath = '/admin'): Promise<boolean> {
+  const redirectTo = `${window.location.origin}${redirectPath}`;
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo },
+  });
+
+  return !error;
+}
+
+export async function getOauthAdminFromSession(): Promise<AdminUser | null> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const email = session?.user?.email;
+  if (!email) return null;
+
+  return getAdminByEmail(email);
+}
+
+export async function recordAdminLogin(admin: Pick<AdminUser, 'id' | 'email' | 'role'>): Promise<void> {
+  await supabase.from('admin_login_history').insert({
+    admin_id: admin.id,
+    email: admin.email,
+    role: admin.role,
+  });
+}
+
+export async function fetchAdminLoginHistory(limit = 20): Promise<AdminLoginHistoryItem[]> {
+  const { data, error } = await supabase
+    .from('admin_login_history')
+    .select('*')
+    .order('login_at', { ascending: false })
+    .limit(limit);
+
+  if (error || !data) {
+    console.error('Error fetching admin login history:', error);
+    return [];
+  }
+
+  return data.map((row) => ({
+    id: row.id,
+    adminId: row.admin_id,
+    email: row.email,
+    role: row.role,
+    loginAt: row.login_at,
+  }));
+}
+
+// ============================================
+// AUDIT TRAIL
+// ============================================
+
+export async function createAuditTrailEntry(input: {
+  actorEmail: string;
+  actorRole: 'admin' | 'super-admin';
+  action: string;
+  entityType: AuditTrailEntityType;
+  entityId?: number | null;
+  entityLabel?: string | null;
+  details?: string | null;
+  metadata?: Record<string, unknown> | null;
+}): Promise<boolean> {
+  const { error } = await supabase.from('audit_trail').insert({
+    actor_email: input.actorEmail,
+    actor_role: input.actorRole,
+    action: input.action,
+    entity_type: input.entityType,
+    entity_id: input.entityId ?? null,
+    entity_label: input.entityLabel ?? null,
+    details: input.details ?? null,
+    metadata: input.metadata ?? null,
+  });
+
+  if (error) {
+    console.error('Error creating audit trail entry:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function fetchAuditTrail(limit = 100): Promise<AuditTrailItem[]> {
+  const { data, error } = await supabase
+    .from('audit_trail')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error || !data) {
+    console.error('Error fetching audit trail:', error);
+    return [];
+  }
+
+  return data.map((row) => ({
+    id: row.id,
+    actorEmail: row.actor_email,
+    actorRole: row.actor_role,
+    action: row.action,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    entityLabel: row.entity_label,
+    details: row.details,
+    metadata: row.metadata,
+    createdAt: row.created_at,
+  }));
+}
+
+// ============================================
+// DELETION REQUESTS
+// ============================================
+
+export async function createDeletionRequest(input: {
+  entityType: DeletionRequestEntityType;
+  entityId: number;
+  entityLabel: string;
+  requestedByEmail: string;
+}): Promise<boolean> {
+  const { error } = await supabase.from('deletion_requests').insert({
+    entity_type: input.entityType,
+    entity_id: input.entityId,
+    entity_label: input.entityLabel,
+    requested_by_email: input.requestedByEmail,
+    status: 'pending',
+  });
+
+  if (error) {
+    console.error('Error creating deletion request:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function fetchDeletionRequests(status: 'pending' | 'approved' | 'rejected' = 'pending'): Promise<DeletionRequestItem[]> {
+  const { data, error } = await supabase
+    .from('deletion_requests')
+    .select('*')
+    .eq('status', status)
+    .order('created_at', { ascending: false });
+
+  if (error || !data) {
+    console.error('Error fetching deletion requests:', error);
+    return [];
+  }
+
+  return data.map((row) => ({
+    id: row.id,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    entityLabel: row.entity_label,
+    requestedByEmail: row.requested_by_email,
+    status: row.status,
+    reviewedByEmail: row.reviewed_by_email,
+    createdAt: row.created_at,
+    reviewedAt: row.reviewed_at,
+  }));
+}
+
+export async function reviewDeletionRequest(input: {
+  requestId: number;
+  reviewedByEmail: string;
+  status: 'approved' | 'rejected';
+}): Promise<boolean> {
+  const { error } = await supabase
+    .from('deletion_requests')
+    .update({
+      status: input.status,
+      reviewed_by_email: input.reviewedByEmail,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq('id', input.requestId)
+    .eq('status', 'pending');
+
+  if (error) {
+    console.error('Error reviewing deletion request:', error);
+    return false;
+  }
+
+  return true;
 }
 
 // ============================================

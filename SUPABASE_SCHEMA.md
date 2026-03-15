@@ -1,29 +1,34 @@
-# ApexGolf Supabase Database Schema
+# ApexGolf Supabase Schema
 
-This file contains the SQL schema to create all necessary tables in your Supabase database.
+This project now expects richer caddie profiles, login-history tracking, and super-admin deletion approvals.
 
-## Instructions:
-1. Go to your Supabase project dashboard
-2. Navigate to the SQL Editor (left sidebar)
-3. Create a new query
-4. Copy and paste the SQL below
-5. Click "Run" to execute
+## Recommended setup
+
+### Existing database
+1. Open Supabase SQL Editor.
+2. Run [supabase/migrations/20260311_align_admin_workflows.sql](supabase/migrations/20260311_align_admin_workflows.sql).
+3. Run [supabase/migrations/20260315_add_audit_trail.sql](supabase/migrations/20260315_add_audit_trail.sql).
+4. Verify the new columns and tables exist.
+
+### Fresh database
+1. Run the full schema below in Supabase SQL Editor.
+2. Optionally seed demo data from the seed section.
 
 ---
 
-## SQL Schema
+## Full schema
 
 ```sql
--- ============================================
--- APEXGOLF DATABASE SCHEMA
--- ============================================
-
--- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ============================================
--- CLUBS TABLE
--- ============================================
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE IF NOT EXISTS clubs (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -33,9 +38,6 @@ CREATE TABLE IF NOT EXISTS clubs (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================
--- CADDIES TABLE
--- ============================================
 CREATE TABLE IF NOT EXISTS caddies (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -46,13 +48,17 @@ CREATE TABLE IF NOT EXISTS caddies (
   top_rated BOOLEAN DEFAULT FALSE,
   initials TEXT NOT NULL,
   color TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  id_number TEXT,
+  address TEXT,
+  age INTEGER,
+  po_box TEXT,
+  organization_club_id BIGINT REFERENCES clubs(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================
--- ADMIN USERS TABLE
--- ============================================
 CREATE TABLE IF NOT EXISTS admin_users (
   id BIGSERIAL PRIMARY KEY,
   name TEXT,
@@ -67,9 +73,6 @@ CREATE TABLE IF NOT EXISTS admin_users (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================
--- BOOKINGS TABLE
--- ============================================
 CREATE TABLE IF NOT EXISTS bookings (
   id BIGSERIAL PRIMARY KEY,
   first_name TEXT NOT NULL,
@@ -91,20 +94,42 @@ CREATE TABLE IF NOT EXISTS bookings (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================
--- ADMIN LOGIN HISTORY TABLE
--- ============================================
 CREATE TABLE IF NOT EXISTS admin_login_history (
   id BIGSERIAL PRIMARY KEY,
   admin_id BIGINT REFERENCES admin_users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
-  role TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('admin', 'super-admin')),
   login_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================
--- INDEXES FOR PERFORMANCE
--- ============================================
+CREATE TABLE IF NOT EXISTS deletion_requests (
+  id BIGSERIAL PRIMARY KEY,
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('booking', 'club', 'caddie')),
+  entity_id BIGINT NOT NULL,
+  entity_label TEXT NOT NULL,
+  requested_by_email TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  reviewed_by_email TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reviewed_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS audit_trail (
+  id BIGSERIAL PRIMARY KEY,
+  actor_email TEXT NOT NULL,
+  actor_role TEXT NOT NULL CHECK (actor_role IN ('admin', 'super-admin')),
+  action TEXT NOT NULL,
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('booking', 'club', 'caddie', 'admin_user', 'deletion_request', 'auth', 'system')),
+  entity_id BIGINT,
+  entity_label TEXT,
+  details TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_caddies_organization_club_id ON caddies(organization_club_id);
+CREATE INDEX IF NOT EXISTS idx_caddies_phone ON caddies(phone);
+CREATE INDEX IF NOT EXISTS idx_caddies_email ON caddies(email);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
 CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(date);
 CREATE INDEX IF NOT EXISTS idx_bookings_email ON bookings(email);
@@ -112,71 +137,71 @@ CREATE INDEX IF NOT EXISTS idx_bookings_club_name ON bookings(club_name);
 CREATE INDEX IF NOT EXISTS idx_bookings_caddie_name ON bookings(caddie_name);
 CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email);
 CREATE INDEX IF NOT EXISTS idx_admin_login_history_admin_id ON admin_login_history(admin_id);
+CREATE INDEX IF NOT EXISTS idx_admin_login_history_email ON admin_login_history(email);
+CREATE INDEX IF NOT EXISTS idx_deletion_requests_status ON deletion_requests(status);
+CREATE INDEX IF NOT EXISTS idx_deletion_requests_entity ON deletion_requests(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_trail_created_at ON audit_trail(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_trail_actor_email ON audit_trail(actor_email);
+CREATE INDEX IF NOT EXISTS idx_audit_trail_entity_type ON audit_trail(entity_type);
 
--- ============================================
--- UPDATED_AT TRIGGER FUNCTION
--- ============================================
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+DO $$
 BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ language 'plpgsql';
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_clubs_updated_at') THEN
+    CREATE TRIGGER update_clubs_updated_at BEFORE UPDATE ON clubs
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  END IF;
 
--- Apply triggers to all tables
-CREATE TRIGGER update_clubs_updated_at BEFORE UPDATE ON clubs
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_caddies_updated_at') THEN
+    CREATE TRIGGER update_caddies_updated_at BEFORE UPDATE ON caddies
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  END IF;
 
-CREATE TRIGGER update_caddies_updated_at BEFORE UPDATE ON caddies
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_admin_users_updated_at') THEN
+    CREATE TRIGGER update_admin_users_updated_at BEFORE UPDATE ON admin_users
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  END IF;
 
-CREATE TRIGGER update_admin_users_updated_at BEFORE UPDATE ON admin_users
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_bookings_updated_at') THEN
+    CREATE TRIGGER update_bookings_updated_at BEFORE UPDATE ON bookings
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
+```
 
-CREATE TRIGGER update_bookings_updated_at BEFORE UPDATE ON bookings
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+---
 
--- ============================================
--- ROW LEVEL SECURITY (RLS)
--- ============================================
+## RLS / policies
 
--- Enable RLS on all tables
+The app currently relies on permissive policies while Supabase auth is only partially wired for admin actions.
+
+```sql
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE caddies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_login_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE deletion_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_trail ENABLE ROW LEVEL SECURITY;
 
--- Public read access for clubs and caddies (needed for booking form)
-CREATE POLICY "Public users can read clubs" ON clubs
-  FOR SELECT USING (true);
+CREATE POLICY "Public users can read clubs" ON clubs FOR SELECT USING (true);
+CREATE POLICY "Public users can read caddies" ON caddies FOR SELECT USING (true);
 
-CREATE POLICY "Public users can read caddies" ON caddies
-  FOR SELECT USING (true);
+CREATE POLICY "Service role can do everything on clubs" ON clubs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role can do everything on caddies" ON caddies FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role can do everything on admin_users" ON admin_users FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role can do everything on bookings" ON bookings FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role can do everything on admin_login_history" ON admin_login_history FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role can do everything on deletion_requests" ON deletion_requests FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role can do everything on audit_trail" ON audit_trail FOR ALL USING (true) WITH CHECK (true);
+```
 
--- Admins can manage everything (you'll need to set up auth for this)
--- For now, allow all operations via service role key
-CREATE POLICY "Service role can do everything on clubs" ON clubs
-  FOR ALL USING (true);
+If you already created policies manually, prefer the migration file because it adds them idempotently.
 
-CREATE POLICY "Service role can do everything on caddies" ON caddies
-  FOR ALL USING (true);
+---
 
-CREATE POLICY "Service role can do everything on admin_users" ON admin_users
-  FOR ALL USING (true);
+## Seed data
 
-CREATE POLICY "Service role can do everything on bookings" ON bookings
-  FOR ALL USING (true);
-
-CREATE POLICY "Service role can do everything on admin_login_history" ON admin_login_history
-  FOR ALL USING (true);
-
--- ============================================
--- SEED DATA
--- ============================================
-
--- Insert default clubs
+```sql
 INSERT INTO clubs (name, location, rate_per_player) VALUES
   ('Karen Country Club', 'Karen, Nairobi', 3500),
   ('Muthaiga Golf Club', 'Muthaiga, Nairobi', 4500),
@@ -186,47 +211,70 @@ INSERT INTO clubs (name, location, rate_per_player) VALUES
   ('Vetlab Sports Club', 'Kabete, Nairobi', 6000)
 ON CONFLICT DO NOTHING;
 
--- Insert default caddies
-INSERT INTO caddies (name, specialty, experience, rating, rounds, top_rated, initials, color) VALUES
-  ('John Kamau', 'Course strategy & reading greens', '8 years', 4.9, 350, true, 'JK', 'bg-green-900'),
-  ('Peter Ochieng', 'Club selection & swing analysis', '6 years', 4.8, 280, false, 'PO', 'bg-blue-900'),
-  ('David Mwangi', 'Mental game coaching', '10 years', 4.9, 420, true, 'DM', 'bg-yellow-800'),
-  ('James Kipchoge', 'Short game specialist', '5 years', 4.7, 200, false, 'JK', 'bg-stone-800')
+INSERT INTO caddies (
+  name, specialty, experience, rating, rounds, top_rated, initials, color,
+  phone, email, id_number, address, age, po_box
+) VALUES
+  ('John Kamau', 'Course strategy & reading greens', '8 years', 4.9, 350, true, 'JK', 'bg-green-900', '0712345678', 'john@apexgolf.africa', '12345678', 'Karen, Nairobi', 31, '00100'),
+  ('Peter Ochieng', 'Club selection & swing analysis', '6 years', 4.8, 280, false, 'PO', 'bg-blue-900', '0722334455', 'peter@apexgolf.africa', '23456789', 'Muthaiga, Nairobi', 29, '00200'),
+  ('David Mwangi', 'Mental game coaching', '10 years', 4.9, 420, true, 'DM', 'bg-yellow-800', '0733445566', 'david@apexgolf.africa', '34567890', 'Limuru', 35, '20100')
 ON CONFLICT DO NOTHING;
 
--- Insert default admin users
--- Note: In production, passwords should be hashed!
-INSERT INTO admin_users (name, email, password, role, can_edit_bookings, can_manage_clubs, can_manage_caddies, can_manage_club_rates) VALUES
+INSERT INTO admin_users (
+  name, email, password, role,
+  can_edit_bookings, can_manage_clubs, can_manage_caddies, can_manage_club_rates
+) VALUES
   ('Super Admin', 'superadmin@apexgolf.africa', 'Super@2026', 'super-admin', true, true, true, true),
   ('Admin User', 'admin@apexgolf.africa', 'Apex@2026', 'admin', true, true, true, true)
 ON CONFLICT (email) DO NOTHING;
-
--- ============================================
--- VERIFICATION QUERIES
--- ============================================
-
--- Run these to verify your data was inserted:
--- SELECT * FROM clubs;
--- SELECT * FROM caddies;
--- SELECT * FROM admin_users;
--- SELECT * FROM bookings;
 ```
 
 ---
 
-## After Running the SQL:
+## Expected tables
 
-1. **Verify Tables Created:**
-   - Go to Table Editor in Supabase
-   - You should see: `clubs`, `caddies`, `admin_users`, `bookings`, `admin_login_history`
+- `clubs`
+- `caddies`
+- `admin_users`
+- `bookings`
+- `admin_login_history`
+- `deletion_requests`
+- `audit_trail`
 
-2. **Check Seed Data:**
-   - Click on each table to see the default clubs, caddies, and admin users
+---
 
-3. **Get Your API Keys:**
-   - Go to Settings > API
-   - Copy your `Project URL` and `anon public` key
-   - Add them to your `.env` file
+## Custom super-admin credentials
 
-4. **Test Connection:**
-   - The app will automatically connect once you add the credentials
+```sql
+UPDATE admin_users
+SET
+  name = 'Super Admin',
+  email = 'your-email@domain.com',
+  password = 'YourCustomPassword123!'
+WHERE role = 'super-admin';
+```
+
+If no super-admin row exists yet:
+
+```sql
+INSERT INTO admin_users (
+  name, email, password, role,
+  can_edit_bookings, can_manage_clubs, can_manage_caddies, can_manage_club_rates
+)
+VALUES (
+  'Super Admin',
+  'your-email@domain.com',
+  'YourCustomPassword123!',
+  'super-admin',
+  true, true, true, true
+)
+ON CONFLICT (email) DO NOTHING;
+```
+
+Verify:
+
+```sql
+SELECT id, name, email, role
+FROM admin_users
+WHERE role = 'super-admin';
+```
