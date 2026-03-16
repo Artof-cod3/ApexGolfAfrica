@@ -26,6 +26,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   
   // Form state
   const [clubId, setClubId] = useState<number | null>(null);
+  const [clubSearchQuery, setClubSearchQuery] = useState('');
   const [date, setDate] = useState('');
   const [players, setPlayers] = useState(1);
   const [time, setTime] = useState('');
@@ -47,6 +48,15 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
     const selectedClub = clubs.find((club) => club.id === clubId);
     return selectedClub?.ratePerPlayer ?? 3500;
   };
+
+  const filteredClubs = clubs.filter((club) => {
+    const query = clubSearchQuery.trim().toLowerCase();
+    if (!query) return true;
+    return (
+      club.name.toLowerCase().includes(query) ||
+      club.location.toLowerCase().includes(query)
+    );
+  });
 
   const calculateTotal = () => {
     let total = getSelectedClubRate() * players;
@@ -213,8 +223,17 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
 
               <div className="mb-8">
                 <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 text-center">Partner Clubs</h4>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    value={clubSearchQuery}
+                    onChange={(e) => setClubSearchQuery(e.target.value)}
+                    placeholder="Search clubs by name or location"
+                    className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-[#c9a962] focus:ring-4 focus:ring-[#c9a962]/10"
+                  />
+                </div>
                 <div className="space-y-4">
-                  {clubs.map(c => (
+                  {filteredClubs.map(c => (
                     <div 
                       key={c.id}
                       onClick={() => setClubId(c.id)}
@@ -230,6 +249,11 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
                       {clubId === c.id && <div className="absolute right-4 top-4 text-[#c5a059]">✓</div>}
                     </div>
                   ))}
+                  {filteredClubs.length === 0 && (
+                    <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5 text-center text-sm text-gray-500">
+                      No clubs match that search. Try a different name or location.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
