@@ -43,6 +43,17 @@ type Props = {
 
 type NavView = 'dashboard' | 'organizations' | 'caddies' | 'caddieOnboarding' | 'members' | 'loginHistory' | 'auditTrail' | 'transactions';
 
+const navTitles: Record<NavView, string> = {
+  dashboard: 'Dashboard',
+  organizations: 'Organizations',
+  caddies: 'Caddies',
+  caddieOnboarding: 'Caddie Onboarding',
+  members: 'Members',
+  loginHistory: 'Login History',
+  auditTrail: 'Audit Trail',
+  transactions: 'Transactions',
+};
+
 const colorOptions = ['bg-green-900', 'bg-blue-900', 'bg-yellow-800', 'bg-stone-800', 'bg-emerald-900'];
 const ADMIN_SESSION_TTL_MS = 5 * 60 * 1000;
 const SUPER_ADMIN_SESSION_TTL_MS = 5 * 60 * 1000;
@@ -59,6 +70,7 @@ const getInitials = (name: string) =>
 const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddies, setCaddies, admins }) => {
   const [currentView, setCurrentView] = useState<NavView>('dashboard');
   const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -180,6 +192,10 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
       window.clearInterval(interval);
     };
   }, [currentAdmin, admins]);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [currentView]);
 
   const canEditBookings = useMemo(
     () => currentAdmin?.role === 'super-admin' || Boolean(currentAdmin?.permissions.canEditBookings),
@@ -778,7 +794,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
               <p className="text-sm text-gray-500 mt-1">Sign in with your admin credentials to continue.</p>
             </div>
 
-            <div className="p-8">
+            <div className="p-4 sm:p-6 lg:p-8">
               <form onSubmit={handleLogin} className="space-y-5">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Email Address</label>
@@ -911,23 +927,52 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
   const adminUsers = admins.filter((a) => a.role === 'admin').length;
 
   return (
-    <div className="min-h-screen flex" style={{ backgroundColor: '#F0F2F5' }}>
+    <div className="relative min-h-screen md:flex" style={{ backgroundColor: '#F0F2F5' }}>
+      {/* Mobile Sidebar Backdrop */}
+      <button
+        type="button"
+        aria-label="Close menu"
+        onClick={() => setIsMobileMenuOpen(false)}
+        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden ${
+          isMobileMenuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
+
       {/* Sidebar */}
       <div
-        className="w-64 text-white flex flex-col"
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] -translate-x-full flex-col text-white transition-transform duration-300 md:static md:z-auto md:w-64 md:max-w-none md:translate-x-0 ${
+          isMobileMenuOpen ? 'translate-x-0' : ''
+        }`}
         style={{ background: 'linear-gradient(180deg,#0F1F17 0%,#1C3A2A 100%)' }}
       >
         {/* Header */}
-        <div className="p-6 border-b border-white/10">
-          <div className="flex items-center gap-3">
+        <div className="border-b border-white/10 p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="font-semibold">Admin Portal</h2>
+                <p className="text-xs text-gray-400">Management Dashboard</p>
+              </div>
+            </div>
             <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button
+                type="button"
+                aria-label="Close menu"
+                className="inline-flex md:hidden"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <svg className="hidden h-6 w-6 md:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-            </div>
-            <div>
-              <h2 className="font-semibold">Admin Portal</h2>
-              <p className="text-xs text-gray-400">Management Dashboard</p>
             </div>
           </div>
         </div>
@@ -1060,12 +1105,37 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 min-w-0 overflow-x-hidden">
+        <div className="sticky top-0 z-30 border-b border-gray-200/80 bg-white/95 px-4 py-3 backdrop-blur md:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white p-2 text-gray-700"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Open menu"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div className="min-w-0 flex-1 text-center">
+              <p className="truncate text-sm font-semibold text-gray-900">{navTitles[currentView]}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-2 text-xs font-medium text-gray-700"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+
         {currentView === 'dashboard' && (
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+            <div className="mb-4 sm:mb-6 lg:mb-8">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
               <p className="text-gray-600">Welcome back, {currentAdmin.role === 'super-admin' ? 'Super Admin' : 'Admin'}! Here's what's happening today.</p>
             </div>
 
@@ -1078,7 +1148,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{clubs.length}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{clubs.length}</p>
                 <p className="text-green-600 text-xs mt-1">↗ Total active</p>
               </div>
 
@@ -1089,7 +1159,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{caddies.length}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{caddies.length}</p>
                 <p className="text-green-600 text-xs mt-1">↗ Registered</p>
               </div>
 
@@ -1100,7 +1170,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{adminUsers}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{adminUsers}</p>
                 <p className="text-green-600 text-xs mt-1">↗ Admin users</p>
               </div>
 
@@ -1111,7 +1181,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{bookings.length}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{bookings.length}</p>
                 <p className="text-green-600 text-xs mt-1">↗ All time</p>
               </div>
 
@@ -1122,7 +1192,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">Ksh {totalRevenue.toLocaleString()}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">Ksh {totalRevenue.toLocaleString()}</p>
                 <p className="text-green-600 text-xs mt-1">↗ Total earned</p>
               </div>
 
@@ -1133,7 +1203,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{todayLogins}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{todayLogins}</p>
                 <p className="text-green-600 text-xs mt-1">↗ Active users</p>
               </div>
             </div>
@@ -1265,9 +1335,9 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 
         {/* Organizations View */}
         {currentView === 'organizations' && (
-          <div className="p-8">
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Organizations</h1>
+          <div className="p-4 sm:p-6 lg:p-8">
+            <div className="mb-4 sm:mb-6 lg:mb-8">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Organizations</h1>
               <p className="text-gray-600">Manage golf clubs and their rates</p>
             </div>
 
@@ -1355,10 +1425,10 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 
         {/* Caddies View */}
         {currentView === 'caddies' && (
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             <div className="mb-8 flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Caddies</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Caddies</h1>
                 <p className="text-gray-600">Manage caddie profiles and organization assignments</p>
               </div>
               <button
@@ -1407,45 +1477,45 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                   <p>No caddies found</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-230">
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <table className="w-full min-w-max sm:min-w-full">
                     <thead>
-                      <tr className="text-left text-sm text-gray-500 border-b border-gray-200">
-                        <th className="py-3">Caddie</th>
-                        <th className="py-3">Employee ID</th>
-                        <th className="py-3">Organization</th>
-                        <th className="py-3">Contact</th>
-                        <th className="py-3">Email</th>
-                        <th className="py-3">ID Number</th>
-                        <th className="py-3">Status</th>
-                        <th className="py-3 text-right">Actions</th>
+                      <tr className="text-left text-xs sm:text-sm text-gray-500 border-b border-gray-200">
+                        <th className="px-3 sm:px-4 py-3">Caddie</th>
+                        <th className="px-3 sm:px-4 py-3">Employee ID</th>
+                        <th className="px-3 sm:px-4 py-3">Organization</th>
+                        <th className="px-3 sm:px-4 py-3">Contact</th>
+                        <th className="px-3 sm:px-4 py-3">Email</th>
+                        <th className="px-3 sm:px-4 py-3">ID Number</th>
+                        <th className="px-3 sm:px-4 py-3">Status</th>
+                        <th className="px-3 sm:px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredCaddies.map((caddie) => {
                         const organization = clubs.find((club) => club.id === caddie.organizationClubId)?.name ?? 'Unassigned';
                         return (
-                          <tr key={caddie.id} className="border-b border-gray-100">
-                            <td className="py-3">
-                              <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 ${caddie.color} rounded-full flex items-center justify-center`}>
-                                  <span className="text-sm font-semibold text-white">{caddie.initials}</span>
+                          <tr key={caddie.id} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="px-3 sm:px-4 py-3">
+                              <div className="flex items-center gap-2 sm:gap-3">
+                                <div className={`w-8 sm:w-10 h-8 sm:h-10 ${caddie.color} rounded-full flex items-center justify-center shrink-0`}>
+                                  <span className="text-xs sm:text-sm font-semibold text-white">{caddie.initials}</span>
                                 </div>
-                                <div>
-                                  <p className="font-medium text-gray-900">{caddie.name}</p>
-                                  <p className="text-xs text-gray-500">{caddie.specialty}</p>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-gray-900 text-sm truncate">{caddie.name}</p>
+                                  <p className="text-xs text-gray-500 truncate">{caddie.specialty}</p>
                                 </div>
                               </div>
                             </td>
-                            <td className="py-3 text-sm text-gray-700">CD-{caddie.id}</td>
-                            <td className="py-3 text-sm text-gray-700">{organization}</td>
-                            <td className="py-3 text-sm text-gray-700">{caddie.phone || '-'}</td>
-                            <td className="py-3 text-sm text-gray-700">{caddie.email || '-'}</td>
-                            <td className="py-3 text-sm text-gray-700">{caddie.idNumber || '-'}</td>
-                            <td className="py-3"><span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">Active</span></td>
-                            <td className="py-3 text-right">
-                              <div className="inline-flex items-center gap-3">
-                                <button onClick={() => beginEditCaddie(caddie)} className="text-blue-600 hover:text-blue-700 disabled:opacity-50" disabled={!canManageCaddies}>Edit</button>
+                            <td className="px-3 sm:px-4 py-3 text-xs sm:text-sm text-gray-700 whitespace-nowrap">CD-{caddie.id}</td>
+                            <td className="px-3 sm:px-4 py-3 text-xs sm:text-sm text-gray-700">{organization}</td>
+                            <td className="px-3 sm:px-4 py-3 text-xs sm:text-sm text-gray-700">{caddie.phone || '-'}</td>
+                            <td className="px-3 sm:px-4 py-3 text-xs sm:text-sm text-gray-700 truncate">{caddie.email || '-'}</td>
+                            <td className="px-3 sm:px-4 py-3 text-xs sm:text-sm text-gray-700">{caddie.idNumber || '-'}</td>
+                            <td className="px-3 sm:px-4 py-3"><span className="inline-flex items-center rounded-full bg-green-100 px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs font-medium text-green-700">Active</span></td>
+                            <td className="px-3 sm:px-4 py-3 text-right">
+                              <div className="inline-flex items-center gap-2 sm:gap-3">
+                                <button onClick={() => beginEditCaddie(caddie)} className="text-blue-600 hover:text-blue-700 disabled:opacity-50 text-xs sm:text-sm" disabled={!canManageCaddies}>Edit</button>
                                 <button
                                   onClick={() => removeCaddie(caddie.id)}
                                   className="text-red-600 hover:text-red-700 disabled:opacity-50"
@@ -1471,10 +1541,10 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 
         {/* Caddie Onboarding View */}
         {currentView === 'caddieOnboarding' && (
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             <div className="mb-8 flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">{editingCaddieId ? 'Edit Caddie Profile' : 'Add Caddie Profile'}</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{editingCaddieId ? 'Edit Caddie Profile' : 'Add Caddie Profile'}</h1>
                 <p className="text-gray-600">Capture complete caddie details and assign organization.</p>
               </div>
               <button
@@ -1531,9 +1601,9 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 
         {/* Members View */}
         {currentView === 'members' && (
-          <div className="p-8">
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Members</h1>
+          <div className="p-4 sm:p-6 lg:p-8">
+            <div className="mb-4 sm:mb-6 lg:mb-8">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Members</h1>
               <p className="text-gray-600">View admin users and their roles</p>
             </div>
 
@@ -1564,10 +1634,10 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 
         {/* Login History View */}
         {currentView === 'loginHistory' && (
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Login History</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Login History</h1>
                 <p className="text-gray-600">Track employee login activity and sessions</p>
               </div>
               <div className="flex gap-2">
@@ -1589,21 +1659,21 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 mb-6">
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <p className="text-sm text-gray-500">Total Logins</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">{loginHistory.length}</p>
+                <p className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">{loginHistory.length}</p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <p className="text-sm text-gray-500">Today's Logins</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">{todayLogins}</p>
+                <p className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">{todayLogins}</p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <p className="text-sm text-gray-500">Active Sessions</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
+                <p className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">
                   {loginHistory.filter((entry) => Date.now() - new Date(entry.loginAt).getTime() <= 24 * 60 * 60 * 1000).length}
                 </p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <p className="text-sm text-gray-500">Unique Users</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">{new Set(loginHistory.map((entry) => entry.email.toLowerCase())).size}</p>
+                <p className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">{new Set(loginHistory.map((entry) => entry.email.toLowerCase())).size}</p>
               </div>
             </div>
 
@@ -1677,10 +1747,10 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 
         {/* Audit Trail View */}
         {currentView === 'auditTrail' && (
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Audit Trail</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Audit Trail</h1>
                 <p className="text-gray-600">Review a tamper-evident history of admin operations and approvals.</p>
               </div>
               <div className="flex gap-2">
@@ -1702,11 +1772,11 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-6">
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <p className="text-sm text-gray-500">Total Events</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">{auditTrail.length}</p>
+                <p className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">{auditTrail.length}</p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <p className="text-sm text-gray-500">Today</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
+                <p className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">
                   {
                     auditTrail.filter((entry) => new Date(entry.createdAt).toDateString() === new Date().toDateString())
                       .length
@@ -1715,7 +1785,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
               </div>
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <p className="text-sm text-gray-500">Unique Actors</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">{new Set(auditTrail.map((entry) => entry.actorEmail.toLowerCase())).size}</p>
+                <p className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">{new Set(auditTrail.map((entry) => entry.actorEmail.toLowerCase())).size}</p>
               </div>
             </div>
 
@@ -1755,15 +1825,15 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-235">
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <table className="w-full min-w-max sm:min-w-full">
                   <thead className="bg-gray-50 border-b border-gray-100">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actor</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actor</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -1774,21 +1844,21 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                     ) : (
                       filteredAuditTrail.map((entry) => (
                         <tr key={entry.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{new Date(entry.createdAt).toLocaleString()}</td>
-                          <td className="px-6 py-4">
-                            <p className="text-sm font-medium text-gray-900">{entry.actorEmail}</p>
+                          <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">{new Date(entry.createdAt).toLocaleString()}</td>
+                          <td className="px-3 sm:px-6 py-4">
+                            <p className="text-xs sm:text-sm font-medium text-gray-900">{entry.actorEmail}</p>
                             <p className="text-xs text-gray-500 capitalize">{entry.actorRole}</p>
                           </td>
-                          <td className="px-6 py-4">
-                            <span className="inline-flex rounded-full bg-green-50 border border-green-200 px-2.5 py-1 text-xs font-semibold text-green-700">
+                          <td className="px-3 sm:px-6 py-4">
+                            <span className="inline-flex rounded-full bg-green-50 border border-green-200 px-2 sm:px-2.5 py-1 text-xs font-semibold text-green-700">
                               {entry.action.replace(/_/g, ' ')}
                             </span>
                           </td>
-                          <td className="px-6 py-4">
-                            <p className="text-sm font-medium text-gray-900">{entry.entityType}</p>
+                          <td className="px-3 sm:px-6 py-4">
+                            <p className="text-xs sm:text-sm font-medium text-gray-900">{entry.entityType}</p>
                             <p className="text-xs text-gray-500">{entry.entityLabel ?? (entry.entityId ? `ID ${entry.entityId}` : '-')}</p>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{entry.details ?? '-'}</td>
+                          <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm text-gray-600">{entry.details ?? '-'}</td>
                         </tr>
                       ))
                     )}
@@ -1801,10 +1871,10 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 
         {/* Transactions View */}
         {currentView === 'transactions' && (
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Transactions</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Transactions</h1>
                 <p className="text-gray-600">Manage transaction history and payments</p>
               </div>
               <div className="flex gap-2">
@@ -1826,19 +1896,19 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 mb-6">
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <p className="text-sm text-gray-500">Total Transactions</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">{filteredTransactions.length}</p>
+                <p className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">{filteredTransactions.length}</p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <p className="text-sm text-gray-500">Completed</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">{filteredTransactions.filter((booking) => booking.status === 'confirmed').length}</p>
+                <p className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">{filteredTransactions.filter((booking) => booking.status === 'confirmed').length}</p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <p className="text-sm text-gray-500">Pending</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">{filteredTransactions.filter((booking) => booking.status === 'pending').length}</p>
+                <p className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">{filteredTransactions.filter((booking) => booking.status === 'pending').length}</p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <p className="text-sm text-gray-500">Total Revenue</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
+                <p className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">
                   Ksh {filteredTransactions.filter((booking) => booking.status === 'confirmed').reduce((sum, booking) => sum + booking.total, 0).toLocaleString()}
                 </p>
               </div>
@@ -1876,16 +1946,17 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
               </div>
             ) : (
               <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-                <table className="w-full">
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <table className="w-full min-w-max sm:min-w-full">
                   <thead className="bg-gray-50 border-b border-gray-100">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Club</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Club</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -1894,21 +1965,21 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                       const caddie = caddies.find((c) => c.id === booking.caddieId);
                       return (
                         <tr key={booking.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="font-mono text-sm font-semibold text-[#c5a059]">APX-{booking.id.toString().slice(-5)}</span>
+                          <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                            <span className="font-mono text-xs sm:text-sm font-semibold text-[#c5a059]">APX-{booking.id.toString().slice(-5)}</span>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-3 sm:px-6 py-3 sm:py-4">
                             <div>
-                              <p className="font-medium text-gray-900">{booking.firstName} {booking.lastName}</p>
-                              <p className="text-sm text-gray-600">{caddie?.name || booking.email}</p>
+                              <p className="font-medium text-gray-900 text-xs sm:text-sm">{booking.firstName} {booking.lastName}</p>
+                              <p className="text-xs text-gray-600">{caddie?.name || booking.email}</p>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{club?.name || 'Unknown'}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{new Date(booking.date).toLocaleDateString()}</td>
-                          <td className="px-6 py-4">
-                            <span className="font-semibold text-gray-900">Ksh {booking.total.toLocaleString()}</span>
+                          <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-900">{club?.name || 'Unknown'}</td>
+                          <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">{new Date(booking.date).toLocaleDateString()}</td>
+                          <td className="px-3 sm:px-6 py-3 sm:py-4">
+                            <span className="font-semibold text-gray-900 text-xs sm:text-sm">Ksh {booking.total.toLocaleString()}</span>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-3 sm:px-6 py-3 sm:py-4">
                             <select 
                               value={booking.status}
                               onChange={(e) => updateStatus(booking.id, e.target.value as Booking['status'])}
@@ -1924,7 +1995,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                               <option value="cancelled">Cancelled</option>
                             </select>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-3 sm:px-6 py-3 sm:py-4">
                             <button
                               onClick={() => deleteBooking(booking.id)}
                               className="text-red-600 hover:text-red-700 disabled:opacity-50"
@@ -1941,6 +2012,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
           </div>
@@ -1951,3 +2023,5 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 };
 
 export default Admin;
+
+
