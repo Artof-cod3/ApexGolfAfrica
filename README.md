@@ -71,3 +71,23 @@ export default defineConfig([
   },
 ])
 ```
+
+## AI Assistant Setup
+
+This project includes an AI-backed client support assistant:
+
+- Frontend widget: `src/components/ClientHelpWidget.tsx`
+- Backend endpoint: `api/ai/chat.ts`
+
+### Required environment variables
+
+Set these in your local `.env` and Vercel project settings:
+
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL` (optional, default: `gpt-4o-mini`)
+
+The endpoint path is:
+
+- `POST /api/ai/chat`
+
+If the AI endpoint fails, the widget automatically falls back to built-in quick support responses.

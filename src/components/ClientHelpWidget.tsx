@@ -40,13 +40,36 @@ const getBotReply = (question: string) => {
   return 'I can help with booking lookup and basic guidance. For account-specific issues, use WhatsApp support below.';
 };
 
+const askAIAssistant = async (question: string, history: Message[]) => {
+  const response = await fetch('/api/ai/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question,
+      history: history.slice(-8),
+      context: {
+        product: 'ApexGolf Africa',
+        scope: 'client_support',
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('AI request failed');
+  }
+
+  const data = (await response.json()) as { reply?: string };
+  return data.reply?.trim();
+};
+
 const ClientHelpWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       from: 'bot',
-      text: 'Hi! I am Apex helper. Ask a quick question, or use WhatsApp/email support.',
+      text: 'Hi! I am Apex AI helper. Ask me anything about booking, references, support, or your golf-day flow.',
     },
   ]);
 
@@ -54,13 +77,27 @@ const ClientHelpWidget: React.FC = () => {
   const supportEmailSubject = 'ApexGolf Client Support';
   const supportEmailBody = `Hi ApexGolf, I need help.\n\nIssue: ${helpText}`;
 
-  const sendMessage = (rawText: string) => {
+  const sendMessage = async (rawText: string) => {
     const text = rawText.trim();
     if (!text) return;
+    if (isThinking) return;
 
-    const reply = getBotReply(text);
-    setMessages((prev) => [...prev, { from: 'user', text }, { from: 'bot', text: reply }]);
+    const userMessage: Message = { from: 'user', text };
+    const nextHistory = [...messages, userMessage];
+    setMessages(nextHistory);
     setInput('');
+
+    setIsThinking(true);
+    try {
+      const aiReply = await askAIAssistant(text, nextHistory);
+      const fallbackReply = getBotReply(text);
+      setMessages((prev) => [...prev, { from: 'bot', text: aiReply || fallbackReply }]);
+    } catch {
+      // Local fallback keeps support chat useful if AI endpoint is down.
+      setMessages((prev) => [...prev, { from: 'bot', text: getBotReply(text) }]);
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   return (
@@ -69,7 +106,7 @@ const ClientHelpWidget: React.FC = () => {
         <div className="mb-3 w-85 max-w-[92vw] overflow-hidden rounded-3xl border border-white/50 bg-white/95 shadow-2xl backdrop-blur">
           <div className="bg-[#0f281e] px-4 py-3 text-white">
             <p className="font-semibold">Apex Help Chat</p>
-            <p className="text-xs text-gray-300">Quick answers for common questions</p>
+            <p className="text-xs text-gray-300">AI answers with support fallback</p>
           </div>
 
           <div className="max-h-72 space-y-2 overflow-y-auto bg-gray-50 px-3 py-3">
@@ -82,6 +119,13 @@ const ClientHelpWidget: React.FC = () => {
                 </span>
               </div>
             ))}
+            {isThinking && (
+              <div className="text-left text-sm">
+                <span className="inline-block rounded-2xl border bg-white px-3 py-2 text-gray-700">
+                  Thinking...
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2 border-t bg-white px-3 pb-1 pt-2">
@@ -89,6 +133,7 @@ const ClientHelpWidget: React.FC = () => {
               <button
                 key={q}
                 onClick={() => sendMessage(q)}
+                disabled={isThinking}
                 className="rounded-full border border-gray-200 px-2 py-1 text-xs hover:bg-gray-50"
               >
                 {q}
@@ -101,13 +146,19 @@ const ClientHelpWidget: React.FC = () => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') sendMessage(input);
+                if (e.key === 'Enter') {
+                  void sendMessage(input);
+                }
               }}
               placeholder="Ask a question..."
               className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm"
             />
-            <button onClick={() => sendMessage(input)} className="rounded-lg bg-[#0f281e] px-3 py-2 text-sm text-white">
-              Send
+            <button
+              onClick={() => void sendMessage(input)}
+              disabled={isThinking}
+              className="rounded-lg bg-[#0f281e] px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isThinking ? '...' : 'Send'}
             </button>
           </div>
 
