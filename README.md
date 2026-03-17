@@ -85,8 +85,10 @@ Set these in your local `.env` and Vercel project settings:
 
 - `OPENAI_API_KEY` (optional)
 - `OPENAI_MODEL` (optional, default: `gpt-4o-mini`)
+- `SERPER_API_KEY` (optional, enables web search enrichment)
 
 If `OPENAI_API_KEY` is missing, the endpoint automatically uses a free no-key provider fallback.
+If `SERPER_API_KEY` is set, the assistant can enrich some answers with live web search results.
 
 The endpoint path is:
 
