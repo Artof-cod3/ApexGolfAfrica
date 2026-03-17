@@ -83,8 +83,10 @@ This project includes an AI-backed client support assistant:
 
 Set these in your local `.env` and Vercel project settings:
 
-- `OPENAI_API_KEY`
+- `OPENAI_API_KEY` (optional)
 - `OPENAI_MODEL` (optional, default: `gpt-4o-mini`)
+
+If `OPENAI_API_KEY` is missing, the endpoint automatically uses a free no-key provider fallback.
 
 The endpoint path is:
 

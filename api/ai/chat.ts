@@ -33,6 +33,57 @@ const sanitizeHistory = (history: ChatMessage[] = []) => {
     }));
 };
 
+const buildPromptFromMessages = (messages: Array<{ role: string; content: string }>) => {
+  return messages
+    .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
+    .join('\n\n');
+};
+
+const callOpenAI = async (
+  apiKey: string,
+  messages: Array<{ role: string; content: string }>,
+) => {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      messages,
+      temperature: 0.3,
+      max_tokens: 280,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI error: ${errorText.slice(0, 300)}`);
+  }
+
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+
+  return data.choices?.[0]?.message?.content?.trim();
+};
+
+const callFreeTextProvider = async (messages: Array<{ role: string; content: string }>) => {
+  const prompt = buildPromptFromMessages(messages);
+  const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt)}`);
+  if (!response.ok) {
+    throw new Error(`Free provider error: HTTP ${response.status}`);
+  }
+
+  const text = (await response.text()).trim();
+  if (!text) {
+    throw new Error('Free provider returned empty response');
+  }
+
+  return text;
+};
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -40,10 +91,6 @@ export default async function handler(req: any, res: any) {
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    res.status(500).json({ error: 'Missing OPENAI_API_KEY' });
-    return;
-  }
 
   const body = (req.body ?? {}) as ChatRequestBody;
   const question = body.question?.trim();
@@ -68,31 +115,18 @@ export default async function handler(req: any, res: any) {
   ];
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        messages,
-        temperature: 0.3,
-        max_tokens: 280,
-      }),
-    });
+    let reply: string | undefined;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      res.status(502).json({ error: 'Upstream AI error', detail: errorText.slice(0, 400) });
-      return;
+    if (apiKey) {
+      try {
+        reply = await callOpenAI(apiKey, messages);
+      } catch {
+        reply = await callFreeTextProvider(messages);
+      }
+    } else {
+      reply = await callFreeTextProvider(messages);
     }
 
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-
-    const reply = data.choices?.[0]?.message?.content?.trim();
     if (!reply) {
       res.status(502).json({ error: 'Empty AI response' });
       return;
