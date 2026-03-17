@@ -92,6 +92,90 @@ const mapCaddieRowToEntity = (caddie: any): Caddie => ({
   createdAt: caddie.created_at ?? undefined,
 });
 
+const getMissingColumnFromError = (error: any): string | null => {
+  const message = [error?.message, error?.details, error?.hint]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  const knownColumns = [
+    'organization_club_id',
+    'phone',
+    'email',
+    'id_number',
+    'address',
+    'age',
+    'po_box',
+  ];
+
+  return knownColumns.find((column) => message.includes(column)) ?? null;
+};
+
+const buildCreateCaddiePayload = (caddie: Omit<Caddie, 'id'>): Record<string, unknown> => ({
+  name: caddie.name,
+  specialty: caddie.specialty,
+  experience: caddie.exp,
+  rating: caddie.rating,
+  rounds: caddie.rounds,
+  top_rated: caddie.topRated,
+  initials: caddie.initials,
+  color: caddie.color,
+  phone: caddie.phone ?? null,
+  email: caddie.email ?? null,
+  id_number: caddie.idNumber ?? null,
+  address: caddie.address ?? null,
+  age: caddie.age ?? null,
+  po_box: caddie.poBox ?? null,
+  organization_club_id: caddie.organizationClubId ?? null,
+});
+
+const buildUpdateCaddiePayload = (updates: Partial<Caddie>): Record<string, unknown> => {
+  const payload: Record<string, unknown> = {};
+  if (updates.name !== undefined) payload.name = updates.name;
+  if (updates.specialty !== undefined) payload.specialty = updates.specialty;
+  if (updates.exp !== undefined) payload.experience = updates.exp;
+  if (updates.rating !== undefined) payload.rating = updates.rating;
+  if (updates.rounds !== undefined) payload.rounds = updates.rounds;
+  if (updates.topRated !== undefined) payload.top_rated = updates.topRated;
+  if (updates.initials !== undefined) payload.initials = updates.initials;
+  if (updates.color !== undefined) payload.color = updates.color;
+  if (updates.phone !== undefined) payload.phone = updates.phone;
+  if (updates.email !== undefined) payload.email = updates.email;
+  if (updates.idNumber !== undefined) payload.id_number = updates.idNumber;
+  if (updates.address !== undefined) payload.address = updates.address;
+  if (updates.age !== undefined) payload.age = updates.age;
+  if (updates.poBox !== undefined) payload.po_box = updates.poBox;
+  if (updates.organizationClubId !== undefined) payload.organization_club_id = updates.organizationClubId;
+  return payload;
+};
+
+async function hasCaddieBookingConflict(input: {
+  caddieName: string;
+  date: string;
+  time: string;
+  excludeBookingId?: number;
+}): Promise<boolean> {
+  let query = supabase
+    .from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('caddie_name', input.caddieName)
+    .eq('date', input.date)
+    .eq('time', input.time)
+    .in('status', ['pending', 'confirmed']);
+
+  if (input.excludeBookingId !== undefined) {
+    query = query.neq('id', input.excludeBookingId);
+  }
+
+  const { count, error } = await query;
+  if (error) {
+    console.error('Error checking caddie booking conflict:', error);
+    return false;
+  }
+
+  return (count ?? 0) > 0;
+}
+
 // ============================================
 // CLUBS
 // ============================================
@@ -191,108 +275,56 @@ export async function fetchCaddies(): Promise<Caddie[]> {
 }
 
 export async function createCaddie(caddie: Omit<Caddie, 'id'>): Promise<Caddie | null> {
-  const payload: Record<string, unknown> = {
-    name: caddie.name,
-    specialty: caddie.specialty,
-    experience: caddie.exp,
-    rating: caddie.rating,
-    rounds: caddie.rounds,
-    top_rated: caddie.topRated,
-    initials: caddie.initials,
-    color: caddie.color,
-    phone: caddie.phone ?? null,
-    email: caddie.email ?? null,
-    id_number: caddie.idNumber ?? null,
-    address: caddie.address ?? null,
-    age: caddie.age ?? null,
-    po_box: caddie.poBox ?? null,
-    organization_club_id: caddie.organizationClubId ?? null,
-  };
+  const payload = buildCreateCaddiePayload(caddie);
 
-  let { data, error } = await supabase
-    .from('caddies')
-    .insert(payload)
-    .select()
-    .single();
-
-  if (error) {
-    const fallbackPayload = {
-      name: caddie.name,
-      specialty: caddie.specialty,
-      experience: caddie.exp,
-      rating: caddie.rating,
-      rounds: caddie.rounds,
-      top_rated: caddie.topRated,
-      initials: caddie.initials,
-      color: caddie.color,
-    };
-
-    const fallbackResult = await supabase
+  let workingPayload: Record<string, unknown> = { ...payload };
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const { data, error } = await supabase
       .from('caddies')
-      .insert(fallbackPayload)
+      .insert(workingPayload)
       .select()
       .single();
 
-    data = fallbackResult.data;
-    error = fallbackResult.error;
+    if (!error && data) {
+      return mapCaddieRowToEntity(data);
+    }
+
+    const missingColumn = getMissingColumnFromError(error);
+    if (!missingColumn || !(missingColumn in workingPayload)) {
+      console.error('Error creating caddie:', error);
+      return null;
+    }
+
+    // Retry without only the unsupported column so all other details still persist.
+    delete workingPayload[missingColumn];
   }
 
-  if (error) {
-    console.error('Error creating caddie:', error);
-    return null;
-  }
-
-  return mapCaddieRowToEntity(data);
+  return null;
 }
 
 export async function updateCaddie(id: number, updates: Partial<Caddie>): Promise<boolean> {
-  const payload: Record<string, unknown> = {};
-  if (updates.name !== undefined) payload.name = updates.name;
-  if (updates.specialty !== undefined) payload.specialty = updates.specialty;
-  if (updates.exp !== undefined) payload.experience = updates.exp;
-  if (updates.rating !== undefined) payload.rating = updates.rating;
-  if (updates.rounds !== undefined) payload.rounds = updates.rounds;
-  if (updates.topRated !== undefined) payload.top_rated = updates.topRated;
-  if (updates.initials !== undefined) payload.initials = updates.initials;
-  if (updates.color !== undefined) payload.color = updates.color;
-  if (updates.phone !== undefined) payload.phone = updates.phone;
-  if (updates.email !== undefined) payload.email = updates.email;
-  if (updates.idNumber !== undefined) payload.id_number = updates.idNumber;
-  if (updates.address !== undefined) payload.address = updates.address;
-  if (updates.age !== undefined) payload.age = updates.age;
-  if (updates.poBox !== undefined) payload.po_box = updates.poBox;
-  if (updates.organizationClubId !== undefined) payload.organization_club_id = updates.organizationClubId;
+  let workingPayload: Record<string, unknown> = buildUpdateCaddiePayload(updates);
 
-  let { error } = await supabase
-    .from('caddies')
-    .update(payload)
-    .eq('id', id);
+  if (Object.keys(workingPayload).length === 0) return true;
 
-  if (error) {
-    const fallbackPayload: Record<string, unknown> = {};
-    if (updates.name !== undefined) fallbackPayload.name = updates.name;
-    if (updates.specialty !== undefined) fallbackPayload.specialty = updates.specialty;
-    if (updates.exp !== undefined) fallbackPayload.experience = updates.exp;
-    if (updates.rating !== undefined) fallbackPayload.rating = updates.rating;
-    if (updates.rounds !== undefined) fallbackPayload.rounds = updates.rounds;
-    if (updates.topRated !== undefined) fallbackPayload.top_rated = updates.topRated;
-    if (updates.initials !== undefined) fallbackPayload.initials = updates.initials;
-    if (updates.color !== undefined) fallbackPayload.color = updates.color;
-
-    const fallbackResult = await supabase
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const { error } = await supabase
       .from('caddies')
-      .update(fallbackPayload)
+      .update(workingPayload)
       .eq('id', id);
 
-    error = fallbackResult.error;
+    if (!error) return true;
+
+    const missingColumn = getMissingColumnFromError(error);
+    if (!missingColumn || !(missingColumn in workingPayload)) {
+      console.error('Error updating caddie:', error);
+      return false;
+    }
+
+    delete workingPayload[missingColumn];
   }
 
-  if (error) {
-    console.error('Error updating caddie:', error);
-    return false;
-  }
-
-  return true;
+  return false;
 }
 
 export async function deleteCaddie(id: number): Promise<boolean> {
@@ -681,6 +713,20 @@ export async function fetchBookings(): Promise<Booking[]> {
 
 export async function createBooking(booking: Omit<Booking, 'id' | 'createdAt'>): Promise<Booking | null> {
   const lookups = await getBookingLookups();
+  const selectedCaddieName = lookups.caddieNameById.get(booking.caddieId) ?? null;
+
+  if (selectedCaddieName && (booking.status === 'pending' || booking.status === 'confirmed')) {
+    const hasConflict = await hasCaddieBookingConflict({
+      caddieName: selectedCaddieName,
+      date: booking.date,
+      time: booking.time,
+    });
+
+    if (hasConflict) {
+      console.error('Booking conflict: caddie already booked for selected date and time.');
+      return null;
+    }
+  }
 
   const { data, error } = await supabase
     .from('bookings')
@@ -694,7 +740,7 @@ export async function createBooking(booking: Omit<Booking, 'id' | 'createdAt'>):
       date: booking.date,
       time: booking.time,
       players: booking.players,
-      caddie_name: lookups.caddieNameById.get(booking.caddieId) ?? null,
+      caddie_name: selectedCaddieName,
       equipment: booking.equipment,
       delivery: booking.delivery,
       addons: booking.addons,
@@ -731,6 +777,39 @@ export async function updateBooking(id: number, updates: Partial<Booking>): Prom
   if (updates.addons !== undefined) dbUpdates.addons = updates.addons;
   if (updates.total !== undefined) dbUpdates.total = updates.total;
   if (updates.status !== undefined) dbUpdates.status = updates.status;
+
+  const { data: existingBooking, error: existingBookingError } = await supabase
+    .from('bookings')
+    .select('caddie_name, date, time, status')
+    .eq('id', id)
+    .single();
+
+  if (existingBookingError || !existingBooking) {
+    console.error('Error loading booking before update:', existingBookingError);
+    return false;
+  }
+
+  const nextCaddieName =
+    updates.caddieId !== undefined
+      ? (lookups.caddieNameById.get(updates.caddieId) ?? null)
+      : (existingBooking.caddie_name as string | null);
+  const nextDate = updates.date ?? existingBooking.date;
+  const nextTime = updates.time ?? existingBooking.time;
+  const nextStatus = updates.status ?? existingBooking.status;
+
+  if (nextCaddieName && (nextStatus === 'pending' || nextStatus === 'confirmed')) {
+    const hasConflict = await hasCaddieBookingConflict({
+      caddieName: nextCaddieName,
+      date: nextDate,
+      time: nextTime,
+      excludeBookingId: id,
+    });
+
+    if (hasConflict) {
+      console.error('Booking conflict: caddie already booked for selected date and time.');
+      return false;
+    }
+  }
 
   const { error } = await supabase
     .from('bookings')

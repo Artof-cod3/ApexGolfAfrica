@@ -1,5 +1,5 @@
 // components/BookingForm.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { Booking } from '../types/booking';
 import type { Caddie, Club } from '../types/entities';
 import { createBooking } from '../services/database';
@@ -44,6 +44,28 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   const [shoeSize, setShoeSize] = useState('');
   const [requests, setRequests] = useState('');
 
+  const unavailableCaddieIds = useMemo(() => {
+    if (!date || !time) return new Set<number>();
+
+    return new Set(
+      bookings
+        .filter(
+          (booking) =>
+            booking.date === date &&
+            booking.time === time &&
+            (booking.status === 'pending' || booking.status === 'confirmed') &&
+            booking.caddieId > 0,
+        )
+        .map((booking) => booking.caddieId),
+    );
+  }, [bookings, date, time]);
+
+  useEffect(() => {
+    if (caddieId && unavailableCaddieIds.has(caddieId)) {
+      setCaddieId(null);
+    }
+  }, [caddieId, unavailableCaddieIds]);
+
   const getSelectedClubRate = () => {
     const selectedClub = clubs.find((club) => club.id === clubId);
     return selectedClub?.ratePerPlayer ?? 3500;
@@ -83,6 +105,11 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   };
 
   const handleSubmit = async () => {
+    if (unavailableCaddieIds.has(caddieId!)) {
+      alert('That caddie has just been booked for this date/time. Please choose another caddie.');
+      return;
+    }
+
     const bookingPayload: Omit<Booking, 'id' | 'createdAt'> = {
       firstName,
       lastName,
@@ -103,7 +130,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
 
     const savedBooking = await createBooking(bookingPayload);
     if (!savedBooking) {
-      alert('Failed to save booking. Please try again.');
+      alert('Failed to save booking. That caddie may already be booked for the selected slot. Please choose another caddie or time.');
       return;
     }
 
@@ -122,10 +149,10 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
 
   const canProceed = () => {
     switch(step) {
-      case 1: return clubId && date && time;
-      case 2: return caddieId;
+      case 1: return Boolean(clubId && date && time);
+      case 2: return Boolean(caddieId && !unavailableCaddieIds.has(caddieId));
       case 3: return true; // Equipment optional
-      case 4: return firstName && lastName && email && phone && nationality;
+      case 4: return Boolean(firstName && lastName && email && phone && nationality);
       default: return true;
     }
   };
@@ -312,31 +339,38 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
             </div>
 
             <div className="space-y-4">
-              {caddies.map(c => (
-                <div 
-                  key={c.id}
-                  onClick={() => setCaddieId(c.id)}
-                  className={`cursor-pointer bg-white rounded-xl p-6 shadow-sm border flex items-center gap-5 transition ${caddieId === c.id ? 'border-[#c5a059] ring-2 ring-[#c5a059]' : 'border-transparent'}`}
-                >
-                  <div className={`w-16 h-16 rounded-full ${c.color} text-white flex items-center justify-center font-serif font-bold text-xl shrink-0`}>
-                    {c.initials}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <h4 className="font-serif font-bold text-gray-800 text-lg">{c.name}</h4>
-                      <div className="flex items-center gap-1 text-[#c5a059] text-sm font-bold">
-                        ⭐ {c.rating}
+              {caddies.map((c) => {
+                const isUnavailable = unavailableCaddieIds.has(c.id);
+
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => {
+                      if (!isUnavailable) setCaddieId(c.id);
+                    }}
+                    className={`rounded-xl p-6 shadow-sm border flex items-center gap-5 transition ${isUnavailable ? 'cursor-not-allowed opacity-55 border-gray-200 bg-gray-50' : 'cursor-pointer bg-white'} ${caddieId === c.id ? 'border-[#c5a059] ring-2 ring-[#c5a059]' : 'border-transparent'}`}
+                  >
+                    <div className={`w-16 h-16 rounded-full ${c.color} text-white flex items-center justify-center font-serif font-bold text-xl shrink-0`}>
+                      {c.initials}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-serif font-bold text-gray-800 text-lg">{c.name}</h4>
+                        <div className="flex items-center gap-1 text-[#c5a059] text-sm font-bold">
+                          ⭐ {c.rating}
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-1">{c.specialty} · {c.exp}</p>
+                      <div className="flex items-center gap-2 mt-3">
+                        {c.topRated && <span className="bg-[#c5a059]/10 text-[#c5a059] text-xs px-2 py-1 rounded font-bold">⭐ Top Rated</span>}
+                        <span className="bg-green-50 text-green-700 text-xs px-2 py-1 rounded font-bold">✓ Certified</span>
+                        {isUnavailable && <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded font-bold">Booked for this slot</span>}
                       </div>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">{c.specialty} · {c.exp}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      {c.topRated && <span className="bg-[#c5a059]/10 text-[#c5a059] text-xs px-2 py-1 rounded font-bold">⭐ Top Rated</span>}
-                      <span className="bg-green-50 text-green-700 text-xs px-2 py-1 rounded font-bold">✓ Certified</span>
-                    </div>
+                    <div className="text-right text-sm text-gray-400 font-medium">{c.rounds} rounds</div>
                   </div>
-                  <div className="text-right text-sm text-gray-400 font-medium">{c.rounds} rounds</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
