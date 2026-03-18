@@ -48,10 +48,19 @@ const Help: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: '#F0F2F5' }}>
-      <div className="mx-auto max-w-6xl">
+    <div className="relative min-h-screen overflow-hidden px-4 py-8 md:px-8" style={{ backgroundColor: '#F0F2F5' }}>
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 -left-20 h-72 w-72 rounded-full" style={{ background: 'radial-gradient(circle, rgba(201,169,98,0.22) 0%, rgba(201,169,98,0) 70%)' }} />
+        <div className="absolute top-20 right-0 h-80 w-80 rounded-full" style={{ background: 'radial-gradient(circle, rgba(28,58,42,0.16) 0%, rgba(28,58,42,0) 70%)' }} />
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-6xl">
         <header className="mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-center md:gap-8">
           <div>
+            <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#C9A962]/40 bg-white/80 px-3 py-1 text-xs font-semibold tracking-wide text-[#1C3A2A] shadow-sm backdrop-blur">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-[#2D5A3D]" />
+              LIVE SUPPORT AVAILABLE
+            </span>
             <h1 className="mb-2 font-serif text-4xl font-bold text-gray-900 md:text-5xl">Customer Help Center</h1>
             <p className="text-base text-gray-600">We&apos;re here to help you with your booking experience</p>
           </div>
@@ -75,7 +84,7 @@ const Help: React.FC = () => {
           </div>
         </header>
 
-        <div className="mb-8 overflow-hidden rounded-3xl bg-white shadow-sm border border-gray-100">
+        <div className="mb-8 overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-[0_18px_50px_-30px_rgba(15,31,23,0.35)]">
           <div className="px-8 pt-8 pb-6 border-b border-gray-100" style={{ background: 'linear-gradient(to right,#f8f6f1,#fff)' }}>
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg,#1C3A2A,#2D5A3D)' }}>
@@ -126,8 +135,26 @@ const Help: React.FC = () => {
           </div>
         </div>
 
+        <div className="mb-8 grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-gray-200/80 bg-white/90 px-5 py-4 shadow-sm backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
+            <div className="text-xs font-semibold tracking-wide text-gray-500">AVERAGE RESPONSE</div>
+            <div className="mt-1 font-serif text-2xl font-bold text-[#0F1F17]">~5 mins</div>
+            <div className="mt-1 text-sm text-gray-600">WhatsApp during support hours</div>
+          </div>
+          <div className="rounded-2xl border border-gray-200/80 bg-white/90 px-5 py-4 shadow-sm backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
+            <div className="text-xs font-semibold tracking-wide text-gray-500">COVERAGE</div>
+            <div className="mt-1 font-serif text-2xl font-bold text-[#0F1F17]">7 Days</div>
+            <div className="mt-1 text-sm text-gray-600">Booking and caddie support window</div>
+          </div>
+          <div className="rounded-2xl border border-gray-200/80 bg-white/90 px-5 py-4 shadow-sm backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
+            <div className="text-xs font-semibold tracking-wide text-gray-500">EMAIL HELP</div>
+            <div className="mt-1 font-serif text-2xl font-bold text-[#0F1F17]">24 hrs</div>
+            <div className="mt-1 text-sm text-gray-600">Typical response turnaround</div>
+          </div>
+        </div>
+
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="overflow-hidden rounded-3xl bg-white shadow-sm border border-gray-100">
+          <div className="overflow-hidden rounded-3xl bg-white shadow-[0_14px_35px_-24px_rgba(15,31,23,0.45)] border border-gray-100">
             <div className="px-8 pt-8 pb-6 border-b border-gray-100" style={{ background: 'linear-gradient(to right,#f8f6f1,#fff)' }}>
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg,#1C3A2A,#2D5A3D)' }}>
@@ -148,7 +175,7 @@ const Help: React.FC = () => {
                     key={item.question}
                     type="button"
                     onClick={() => setOpenFaqIndex(isOpen ? null : actualIndex)}
-                    className="group w-full rounded-2xl border border-gray-100 bg-white px-5 py-4 text-left transition-all duration-200 hover:border-[#C9A962]/30 hover:bg-gray-50"
+                    className="group w-full rounded-2xl border border-gray-100 bg-white px-5 py-4 text-left transition-all duration-200 hover:border-[#C9A962]/30 hover:bg-gray-50 hover:shadow-sm"
                   >
                     <div className="flex items-center justify-between gap-4">
                       <span className="font-medium text-gray-700 group-hover:text-[#0F1F17]">{item.question}</span>
@@ -177,7 +204,7 @@ const Help: React.FC = () => {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-3xl bg-white shadow-sm border border-gray-100">
+          <div className="overflow-hidden rounded-3xl bg-white shadow-[0_14px_35px_-24px_rgba(15,31,23,0.45)] border border-gray-100">
             <div className="px-8 pt-8 pb-6 border-b border-gray-100" style={{ background: 'linear-gradient(to right,#f8f6f1,#fff)' }}>
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg,#7C3AED,#8B5CF6)' }}>
@@ -204,6 +231,10 @@ const Help: React.FC = () => {
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-medium border border-purple-100" style={{ color: '#7C3AED' }}>Instant Replies</span>
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-medium border border-purple-100" style={{ color: '#7C3AED' }}>Smart Routing</span>
                 </div>
+              </div>
+
+              <div className="mt-6 rounded-xl border border-[#C9A962]/30 px-4 py-3 text-sm text-[#1C3A2A]" style={{ background: 'linear-gradient(135deg, rgba(201,169,98,0.10) 0%, rgba(201,169,98,0.04) 100%)' }}>
+                Tip: Include your booking reference in every message for faster support routing.
               </div>
             </div>
           </div>
