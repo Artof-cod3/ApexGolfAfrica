@@ -1,5 +1,5 @@
 // components/BookingForm.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Booking } from '../types/booking';
 import type { Caddie, Club } from '../types/entities';
 import { createBooking } from '../services/database';
@@ -43,6 +43,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   const [nationality, setNationality] = useState('');
   const [shoeSize, setShoeSize] = useState('');
   const [requests, setRequests] = useState('');
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   const unavailableCaddieIds = useMemo(() => {
     if (!date || !time) return new Set<number>();
@@ -140,7 +141,11 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   };
 
   const nextStep = () => {
-    if (step < 5) setStep(step + 1);
+    if (step < 5) {
+      setStep((prev) => prev + 1);
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const prevStep = () => {
@@ -234,7 +239,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto px-4 pb-8 md:px-0">
+      <div ref={contentRef} className="flex-1 overflow-y-auto px-4 pb-8 md:px-0">
         
         {/* Step 1: Club & Date */}
         {step === 1 && (
