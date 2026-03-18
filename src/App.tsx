@@ -115,44 +115,52 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={<Home bookings={bookings} setBookings={setBookings} clubs={clubs} caddies={caddies} />}
-      />
-      <Route path="/client" element={<Client clubs={clubs} caddies={caddies} />} />
-      <Route path="/help" element={<Help />} />
-      <Route path="/about" element={<About />} />
-      <Route
-        path="/admin"
-        element={
-          <Admin
-            bookings={bookings}
-            setBookings={setBookings}
-            clubs={clubs}
-            setClubs={setClubs}
-            caddies={caddies}
-            setCaddies={setCaddies}
-            admins={admins}
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F0F2F5' }}>
+      <main className="flex-1">
+        <Routes>
+          <Route
+            path="/"
+            element={<Home bookings={bookings} setBookings={setBookings} clubs={clubs} caddies={caddies} />}
           />
-        }
-      />
-      <Route
-        path="/super-admin"
-        element={
-          <SuperAdmin
-            admins={admins}
-            setAdmins={setAdmins}
-            bookings={bookings}
-            setBookings={setBookings}
-            clubs={clubs}
-            setClubs={setClubs}
-            caddies={caddies}
-            setCaddies={setCaddies}
+          <Route path="/client" element={<Client clubs={clubs} caddies={caddies} />} />
+          <Route path="/help" element={<Help />} />
+          <Route path="/about" element={<About />} />
+          <Route
+            path="/admin"
+            element={
+              <Admin
+                bookings={bookings}
+                setBookings={setBookings}
+                clubs={clubs}
+                setClubs={setClubs}
+                caddies={caddies}
+                setCaddies={setCaddies}
+                admins={admins}
+              />
+            }
           />
-        }
-      />
-    </Routes>
+          <Route
+            path="/super-admin"
+            element={
+              <SuperAdmin
+                admins={admins}
+                setAdmins={setAdmins}
+                bookings={bookings}
+                setBookings={setBookings}
+                clubs={clubs}
+                setClubs={setClubs}
+                caddies={caddies}
+                setCaddies={setCaddies}
+              />
+            }
+          />
+        </Routes>
+      </main>
+
+      <footer className="border-t border-[#C9A962]/25 bg-[#0F1F17] px-4 py-4 text-center text-sm text-[#E5D5A8]">
+        © 2026 ApexGolf Africa. All Rights Reserved.
+      </footer>
+    </div>
   );
 };
 
