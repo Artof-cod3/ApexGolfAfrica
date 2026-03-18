@@ -328,19 +328,22 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
         {/* Step 2: Choose Caddie */}
         {step === 2 && (
           <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
-            <div className="bg-white rounded-xl p-8 shadow-sm">
+            <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
               <div className="flex items-start gap-4 mb-6">
-                <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center text-2xl">👕</div>
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background: 'linear-gradient(135deg,#1C3A2A,#2D5A3D)' }}>
+                  👕
+                </div>
                 <div>
-                  <h3 className="font-serif text-2xl text-gray-800">Choose Your Caddie</h3>
-                  <p className="text-sm text-gray-500">All caddies are Apex Academy certified</p>
+                  <h3 className="font-serif text-2xl font-bold text-gray-900">Choose Your Caddie</h3>
+                  <p className="text-sm text-gray-500 mt-1">All caddies are Apex Academy certified professionals</p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {caddies.map((c) => {
                 const isUnavailable = unavailableCaddieIds.has(c.id);
+                const isSelected = caddieId === c.id;
 
                 return (
                   <div
@@ -348,26 +351,67 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
                     onClick={() => {
                       if (!isUnavailable) setCaddieId(c.id);
                     }}
-                    className={`rounded-xl p-6 shadow-sm border flex items-center gap-5 transition ${isUnavailable ? 'cursor-not-allowed opacity-55 border-gray-200 bg-gray-50' : 'cursor-pointer bg-white'} ${caddieId === c.id ? 'border-[#c5a059] ring-2 ring-[#c5a059]' : 'border-transparent'}`}
+                    className={`rounded-2xl p-5 border-2 transition-all duration-200 ${
+                      isUnavailable
+                        ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-50'
+                        : isSelected
+                        ? 'cursor-pointer border-[#C9A962] bg-white shadow-md'
+                        : 'cursor-pointer border-gray-100 bg-white hover:border-[#C9A962]/30 hover:shadow-sm'
+                    }`}
+                    style={isSelected ? { boxShadow: '0 0 0 3px rgba(201,169,98,0.15)' } : {}}
                   >
-                    <div className={`w-16 h-16 rounded-full ${c.color} text-white flex items-center justify-center font-serif font-bold text-xl shrink-0`}>
-                      {c.initials}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-serif font-bold text-gray-800 text-lg">{c.name}</h4>
-                        <div className="flex items-center gap-1 text-[#c5a059] text-sm font-bold">
-                          ⭐ {c.rating}
+                    <div className="flex items-start gap-4 mb-3">
+                      {/* Avatar */}
+                      <div className="relative">
+                        <div className={`w-14 h-14 rounded-2xl ${c.color} text-white flex items-center justify-center font-serif font-bold text-lg shrink-0`}>
+                          {c.initials}
+                        </div>
+                        {!isUnavailable && (
+                          <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-serif font-bold text-gray-900 text-base">{c.name}</h4>
+                          <span className="text-lg">★</span>
+                          <span className="text-sm font-semibold text-gray-700">{c.rating}</span>
+                        </div>
+                        <p className="text-xs text-gray-600 mb-2">{c.specialty} · {c.exp}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className="text-xs font-bold px-2.5 py-1 rounded-full text-white"
+                            style={isUnavailable ? { background: '#EF4444' } : { background: '#16A34A' }}
+                          >
+                            {isUnavailable ? '● ON ROUND' : '● AVAILABLE'}
+                          </span>
+                          {c.topRated && (
+                            <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: '#F8F6F1', color: '#C9A962' }}>
+                              ⭐ Top Rated
+                            </span>
+                          )}
+                          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-green-50 text-green-700">
+                            ✓ Certified
+                          </span>
                         </div>
                       </div>
-                      <p className="text-sm text-gray-500 mt-1">{c.specialty} · {c.exp}</p>
-                      <div className="flex items-center gap-2 mt-3">
-                        {c.topRated && <span className="bg-[#c5a059]/10 text-[#c5a059] text-xs px-2 py-1 rounded font-bold">⭐ Top Rated</span>}
-                        <span className="bg-green-50 text-green-700 text-xs px-2 py-1 rounded font-bold">✓ Certified</span>
-                        {isUnavailable && <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded font-bold">Booked for this slot</span>}
+
+                      {/* Stats */}
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-xs text-gray-500 mb-1">Total Rounds</div>
+                        <div className="text-lg font-bold text-gray-900">{c.rounds}</div>
                       </div>
                     </div>
-                    <div className="text-right text-sm text-gray-400 font-medium">{c.rounds} rounds</div>
+
+                    {/* Selection button */}
+                    {!isUnavailable && (
+                      <div className="text-right pt-2 border-t border-gray-100">
+                        <span className="text-xs font-semibold text-[#C9A962]">
+                          {isSelected ? '✓ SELECTED' : 'Click to select'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
