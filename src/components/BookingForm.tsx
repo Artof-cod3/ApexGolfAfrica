@@ -43,6 +43,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   const [nationality, setNationality] = useState('');
   const [shoeSize, setShoeSize] = useState('');
   const [requests, setRequests] = useState('');
+  const formTopRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
   const unavailableCaddieIds = useMemo(() => {
@@ -66,6 +67,31 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
       setCaddieId(null);
     }
   }, [caddieId, unavailableCaddieIds]);
+
+  const scrollToStepTop = () => {
+    contentRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+
+    const target = contentRef.current ?? formTopRef.current;
+    if (target) {
+      const targetTop = target.getBoundingClientRect().top + window.scrollY - 16;
+      window.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  };
+
+  useEffect(() => {
+    if (step <= 1) return;
+
+    const timer = window.setTimeout(() => {
+      scrollToStepTop();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [step]);
 
   const getSelectedClubRate = () => {
     const selectedClub = clubs.find((club) => club.id === clubId);
@@ -136,15 +162,13 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
     }
 
     setBookings([...bookings, savedBooking]);
-    setBookingRef('APX-' + Math.floor(10000 + Math.random() * 90000));
+    setBookingRef(`APX-${savedBooking.id}`);
     setShowSuccess(true);
   };
 
   const nextStep = () => {
     if (step < 5) {
       setStep((prev) => prev + 1);
-      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -196,7 +220,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col overflow-hidden">
+    <div ref={formTopRef} className="mx-auto flex w-full max-w-6xl flex-col overflow-hidden">
       {/* Hero */}
       <div className="relative mx-4 overflow-hidden rounded-4xl px-8 py-14 text-white shadow-2xl md:mx-0 md:px-12 md:py-20">
         <div

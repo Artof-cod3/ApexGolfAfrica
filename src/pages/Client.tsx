@@ -82,7 +82,7 @@ const Client: React.FC<Props> = ({ clubs, caddies }) => {
           {foundBooking ? (
             <div className="overflow-hidden rounded-[28px] border border-[#e9dfca] bg-white shadow-xl animate-fadeIn">
               <div className="border-b border-[#c9a962]/30 bg-[linear-gradient(135deg,rgba(201,169,98,0.2)_0%,rgba(250,248,245,1)_100%)] p-5 text-center">
-                <span className="font-mono text-2xl font-bold text-[#0f281e]">APX-{foundBooking.id.toString().slice(-5)}</span>
+                <span className="font-mono text-2xl font-bold text-[#0f281e]">APX-{foundBooking.id}</span>
                 <p className="mt-1 text-sm text-gray-600">Booking Reference</p>
               </div>
 
