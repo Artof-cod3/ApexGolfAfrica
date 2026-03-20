@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Booking } from '../types/booking';
 import type { Caddie, Club } from '../types/entities';
 import { createBooking } from '../services/database';
+import { sendBookingReceiptEmail } from '../services/receipt';
 
 type Props = {
   bookings: Booking[];
@@ -162,7 +163,26 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
     }
 
     setBookings([...bookings, savedBooking]);
-    setBookingRef(`APX-${savedBooking.id}`);
+    const generatedReference = `APX-${savedBooking.id}`;
+    setBookingRef(generatedReference);
+
+    const selectedClubName = clubs.find((club) => club.id === savedBooking.clubId)?.name ?? 'Apex Club';
+    const selectedCaddieName = caddies.find((caddie) => caddie.id === savedBooking.caddieId)?.name ?? 'Assigned at club';
+
+    void sendBookingReceiptEmail({
+      bookingReference: generatedReference,
+      firstName: savedBooking.firstName,
+      lastName: savedBooking.lastName,
+      email: savedBooking.email,
+      phone: savedBooking.phone,
+      clubName: selectedClubName,
+      caddieName: selectedCaddieName,
+      date: savedBooking.date,
+      time: savedBooking.time,
+      players: savedBooking.players,
+      total: savedBooking.total,
+    });
+
     setShowSuccess(true);
   };
 

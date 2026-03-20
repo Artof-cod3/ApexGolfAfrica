@@ -95,3 +95,32 @@ The endpoint path is:
 - `POST /api/ai/chat`
 
 If the AI endpoint fails, the widget automatically falls back to built-in quick support responses.
+
+## Booking Receipt Email (Auto-Send)
+
+After successful booking confirmation, the app now triggers a receipt email to the client.
+
+- Frontend trigger: [src/services/receipt.ts](src/services/receipt.ts)
+- Booking hook point: [src/components/BookingForm.tsx](src/components/BookingForm.tsx)
+- Supabase Edge Function: [supabase/functions/send-booking-receipt/index.ts](supabase/functions/send-booking-receipt/index.ts)
+
+### Deploy and configure
+
+1. Deploy the function:
+
+```bash
+supabase functions deploy send-booking-receipt
+```
+
+2. Set required Supabase secrets:
+
+```bash
+supabase secrets set RESEND_API_KEY=your_resend_api_key
+supabase secrets set RECEIPT_FROM_EMAIL="ApexGolf Africa <bookings@apexgolf.africa>"
+```
+
+3. Ensure your sender domain/email is verified in Resend.
+
+Notes:
+- The receipt sender is non-blocking. Booking success is not interrupted if email delivery fails.
+- Keep API keys only in Supabase secrets, never in frontend environment variables.
