@@ -676,6 +676,7 @@ function mapBookingRowToBooking(
 ): Booking {
   return {
     id: booking.id,
+    bookingReference: booking.booking_reference ?? `APX-${booking.id}`,
     firstName: booking.first_name,
     lastName: booking.last_name,
     email: booking.email,
@@ -840,9 +841,39 @@ export async function deleteBooking(id: number): Promise<boolean> {
 
 export async function fetchBookingByReference(referenceId: string): Promise<Booking | null> {
   const lookups = await getBookingLookups();
+  const normalizedReference = referenceId.trim().toUpperCase();
 
-  // Extract numeric ID from reference (e.g., "APX-12345" -> 12345)
-  const numericId = parseInt(referenceId.replace(/\D/g, ''), 10);
+  if (!normalizedReference) {
+    return null;
+  }
+
+  const byReference = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('booking_reference', normalizedReference)
+    .single();
+
+  if (!byReference.error && byReference.data) {
+    return mapBookingRowToBooking(byReference.data, lookups);
+  }
+
+  // If the booking_reference column is not deployed yet, keep legacy lookup working.
+  const byReferenceErrorMessage = [byReference.error?.message, byReference.error?.details, byReference.error?.hint]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  const shouldTryLegacyLookup =
+    !byReference.error ||
+    byReferenceErrorMessage.includes('booking_reference') ||
+    byReference.error.code === 'PGRST204';
+
+  if (!shouldTryLegacyLookup) {
+    return null;
+  }
+
+  // Legacy fallback: extract numeric ID from references like APX-12345.
+  const numericId = parseInt(normalizedReference.replace(/\D/g, ''), 10);
   
   if (isNaN(numericId)) {
     return null;

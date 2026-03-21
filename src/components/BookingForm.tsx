@@ -24,6 +24,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   const [step, setStep] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
   const [bookingRef, setBookingRef] = useState('');
+  const [copiedRef, setCopiedRef] = useState(false);
   
   // Form state
   const [clubId, setClubId] = useState<number | null>(null);
@@ -163,7 +164,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
     }
 
     setBookings([...bookings, savedBooking]);
-    const generatedReference = `APX-${savedBooking.id}`;
+    const generatedReference = savedBooking.bookingReference ?? `APX-${savedBooking.id}`;
     setBookingRef(generatedReference);
 
     const selectedClubName = clubs.find((club) => club.id === savedBooking.clubId)?.name ?? 'Apex Club';
@@ -223,6 +224,22 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
           <div className="bg-[#c5a059]/20 px-8 py-3 rounded-lg mb-6">
             <span className="font-serif text-xl font-bold text-[#0f281e] tracking-widest">{bookingRef}</span>
           </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(bookingRef);
+                setCopiedRef(true);
+                window.setTimeout(() => setCopiedRef(false), 1800);
+              } catch {
+                setCopiedRef(false);
+              }
+            }}
+            className="mb-5 rounded-xl border border-[#c5a059]/40 bg-white px-4 py-2 text-sm font-semibold text-[#0f281e] transition hover:bg-[#f8f6f1]"
+          >
+            {copiedRef ? 'Copied' : 'Copy Reference'}
+          </button>
 
           <p className="text-xs text-gray-500 mb-8 max-w-70 leading-relaxed">
             Save this reference. Your caddie will greet you at the clubhouse entrance with your Cool Box and all hired equipment ready.

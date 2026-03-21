@@ -14,12 +14,13 @@ type Props = {
 const Client: React.FC<Props> = ({ clubs, caddies }) => {
   const [searchRef, setSearchRef] = useState('');
   const [foundBooking, setFoundBooking] = useState<Booking | null>(null);
+  const [copiedRef, setCopiedRef] = useState(false);
 
   const handleSearch = async () => {
     const query = searchRef.trim();
     if (!query) return;
 
-    const isReference = /^APX-\d+$/i.test(query);
+    const isReference = /^APX-[A-Z0-9-]+$/i.test(query);
 
     if (isReference) {
       const booking = await fetchBookingByReference(query.toUpperCase());
@@ -67,7 +68,7 @@ const Client: React.FC<Props> = ({ clubs, caddies }) => {
                 type="text"
                 value={searchRef}
                 onChange={(e) => setSearchRef(e.target.value)}
-                placeholder="Enter booking reference (APX-XXXXX) or email"
+                placeholder="Enter booking reference (e.g. APX-3F8A-7C2D) or email"
                 className="flex-1 rounded-xl border-2 border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-[#c9a962] focus:ring-4 focus:ring-[#c9a962]/10"
               />
               <button
@@ -82,8 +83,24 @@ const Client: React.FC<Props> = ({ clubs, caddies }) => {
           {foundBooking ? (
             <div className="overflow-hidden rounded-[28px] border border-[#e9dfca] bg-white shadow-xl animate-fadeIn">
               <div className="border-b border-[#c9a962]/30 bg-[linear-gradient(135deg,rgba(201,169,98,0.2)_0%,rgba(250,248,245,1)_100%)] p-5 text-center">
-                <span className="font-mono text-2xl font-bold text-[#0f281e]">APX-{foundBooking.id}</span>
+                <span className="font-mono text-2xl font-bold text-[#0f281e]">{foundBooking.bookingReference ?? `APX-${foundBooking.id}`}</span>
                 <p className="mt-1 text-sm text-gray-600">Booking Reference</p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const value = foundBooking.bookingReference ?? `APX-${foundBooking.id}`;
+                    try {
+                      await navigator.clipboard.writeText(value);
+                      setCopiedRef(true);
+                      window.setTimeout(() => setCopiedRef(false), 1800);
+                    } catch {
+                      setCopiedRef(false);
+                    }
+                  }}
+                  className="mt-3 rounded-lg border border-[#c5a059]/40 bg-white px-3 py-1.5 text-xs font-semibold text-[#0f281e] transition hover:bg-[#f8f6f1]"
+                >
+                  {copiedRef ? 'Copied' : 'Copy Reference'}
+                </button>
               </div>
 
               <div className="space-y-4 p-6">

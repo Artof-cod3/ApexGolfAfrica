@@ -1,6 +1,7 @@
 // types/booking.ts
 export interface Booking {
   id: number;
+  bookingReference?: string;
   firstName: string;
   lastName: string;
   email: string;
