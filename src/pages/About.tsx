@@ -65,7 +65,7 @@ const About: React.FC = () => {
           {sections.map((section, index) => (
             <article
               key={section.title}
-              className={`rounded-[28px] border border-[#e9dfca] bg-white p-8 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl ${index === sections.length - 1 ? 'md:col-span-2' : ''}`}
+              className="rounded-[28px] border border-[#e9dfca] bg-white p-8 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
             >
               <h2 className="font-serif text-3xl font-bold text-[#1c2b24]">{section.title}</h2>
               <p className="mt-4 text-base leading-8 text-gray-600">{section.body}</p>
