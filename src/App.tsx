@@ -10,6 +10,7 @@ import SuperAdmin from './pages/SuperAdmin.tsx';
 import type { Booking } from './types/booking';
 import type { AdminUser, Caddie, Club } from './types/entities';
 import { fetchAdminUsers, fetchBookings, fetchCaddies, fetchClubs } from './services/database';
+import AdminInstallPrompt from './components/AdminInstallPrompt';
 
 const App: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -79,6 +80,7 @@ const App: React.FC = () => {
         canManageClubs: true,
         canManageCaddies: true,
         canManageClubRates: true,
+        canViewTransactions: true,
       },
     },
     {
@@ -92,6 +94,7 @@ const App: React.FC = () => {
         canManageClubs: true,
         canManageCaddies: true,
         canManageClubRates: true,
+        canViewTransactions: false,
       },
     },
   ]);
@@ -116,6 +119,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F0F2F5' }}>
+      <AdminInstallPrompt />
       <main className="flex-1">
         <Routes>
           <Route

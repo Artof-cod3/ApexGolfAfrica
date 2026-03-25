@@ -62,7 +62,7 @@ const About: React.FC = () => {
         </section>
 
         <section className="mt-10 grid gap-6 md:grid-cols-2">
-          {sections.map((section, index) => (
+          {sections.map((section) => (
             <article
               key={section.title}
               className="rounded-[28px] border border-[#e9dfca] bg-white p-8 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
