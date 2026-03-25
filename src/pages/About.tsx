@@ -23,11 +23,6 @@ const sections = [
     body:
       'We are first movers in an uncontested market. Our model scales—from one club to ten across East Africa. Our revenue streams diversify risk from day one. And we create dignified, well-paying jobs for Africans, with every caddie serving as an ambassador for excellence. We are actively seeking pilot club partners, investors, and tour operator alliances to bring ApexGolf to courses across the continent.',
   },
-  {
-    title: 'Our Investment in Experience',
-    body:
-      'A golfer pays Ksh 3,500 for our service. We invest Ksh 470—just 13%—in their experience: the Cool Box, the Finish Pack, the Yardage Book. The remaining Ksh 3,030 covers fair caddie pay and our margin. Every shilling we spend on experience pays back tenfold in the loyalty and referrals that grow our business.',
-  },
 ];
 
 const About: React.FC = () => {
