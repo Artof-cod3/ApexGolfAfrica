@@ -7,6 +7,16 @@ import './tailwind.css';
 
 registerSW({ immediate: true });
 
+const hideSplashScreen = () => {
+  const splash = document.getElementById('app-splash');
+  if (!splash) return;
+
+  splash.classList.add('app-splash-hide');
+  window.setTimeout(() => {
+    splash.remove();
+  }, 420);
+};
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
@@ -14,3 +24,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+window.setTimeout(hideSplashScreen, 850);

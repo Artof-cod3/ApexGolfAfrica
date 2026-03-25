@@ -16,8 +16,100 @@
     <meta name="twitter:description" content="Premium golf booking and caddie services across leading clubs in Kenya." />
     <meta name="twitter:image" content="/apexgolf-logo.svg" />
     <title>ApexGolf Africa</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #f0f2f5;
+      }
+
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(180deg, #0d2920 0%, #1a3d2e 55%, #0d2920 100%);
+        transition: opacity 380ms ease;
+      }
+
+      #app-splash.app-splash-hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .app-splash-card {
+        text-align: center;
+        color: #e5d5a8;
+        padding: 24px;
+      }
+
+      .app-splash-logo {
+        width: min(72vw, 300px);
+        filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.35));
+      }
+
+      .app-splash-title {
+        margin-top: 18px;
+        font-size: 15px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-family: Georgia, 'Times New Roman', serif;
+        opacity: 0.88;
+      }
+
+      .app-splash-dots {
+        margin-top: 18px;
+        display: inline-flex;
+        gap: 8px;
+      }
+
+      .app-splash-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 9999px;
+        background: #c9a961;
+        animation: app-splash-pulse 1.2s ease-in-out infinite;
+        opacity: 0.45;
+      }
+
+      .app-splash-dot:nth-child(2) {
+        animation-delay: 0.16s;
+      }
+
+      .app-splash-dot:nth-child(3) {
+        animation-delay: 0.32s;
+      }
+
+      @keyframes app-splash-pulse {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 0.45;
+        }
+        50% {
+          transform: scale(1.2);
+          opacity: 1;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="app-splash" aria-hidden="true">
+      <div class="app-splash-card">
+        <img class="app-splash-logo" src="/apexgolf-logo.svg" alt="ApexGolf Africa" />
+        <div class="app-splash-title">Reach the Apex of Golf Service</div>
+        <div class="app-splash-dots" aria-hidden="true">
+          <span class="app-splash-dot"></span>
+          <span class="app-splash-dot"></span>
+          <span class="app-splash-dot"></span>
+        </div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
