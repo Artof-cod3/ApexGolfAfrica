@@ -65,7 +65,13 @@ const About: React.FC = () => {
           {sections.map((section) => (
             <article
               key={section.title}
-              className="rounded-[28px] border border-[#e9dfca] bg-white p-8 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+              className={`rounded-[28px] border border-[#e9dfca] bg-white p-8 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl ${
+                section.title === 'The Apex Difference'
+                  ? 'md:col-start-1 md:row-start-2'
+                  : section.title === 'Why We Win'
+                    ? 'md:col-start-2 md:row-start-2'
+                    : ''
+              }`}
             >
               <h2 className="font-serif text-3xl font-bold text-[#1c2b24]">{section.title}</h2>
               <p className="mt-4 text-base leading-8 text-gray-600">{section.body}</p>
