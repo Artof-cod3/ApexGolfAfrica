@@ -30,6 +30,7 @@ export interface AdminPermissions {
   canManageClubs: boolean;
   canManageCaddies: boolean;
   canManageClubRates: boolean;
+  canViewTransactions: boolean;
 }
 
 export interface AdminUser {
