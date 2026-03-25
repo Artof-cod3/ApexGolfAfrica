@@ -44,6 +44,7 @@ const defaultPermissions: AdminPermissions = {
   canManageClubs: true,
   canManageCaddies: true,
   canManageClubRates: true,
+  canViewTransactions: false,
 };
 
 const SuperAdmin: React.FC<Props> = ({ admins, setAdmins, setBookings, setClubs, setCaddies }) => {
@@ -544,6 +545,7 @@ const SuperAdmin: React.FC<Props> = ({ admins, setAdmins, setBookings, setClubs,
                       ['canManageClubs', 'Manage Clubs'],
                       ['canManageCaddies', 'Manage Caddies'],
                       ['canManageClubRates', 'Manage Club Rates'],
+                      ['canViewTransactions', 'View Transactions'],
                     ] as Array<[keyof AdminPermissions, string]>
                   ).map(([key, label]) => (
                     <label key={key} className="flex items-center gap-2.5 cursor-pointer group">
@@ -745,6 +747,7 @@ const SuperAdmin: React.FC<Props> = ({ admins, setAdmins, setBookings, setClubs,
                         ['canManageClubs', 'Manage Clubs'],
                         ['canManageCaddies', 'Manage Caddies'],
                         ['canManageClubRates', 'Manage Club Rates'],
+                        ['canViewTransactions', 'View Transactions'],
                       ] as Array<[keyof AdminPermissions, string]>
                     ).map(([key, label]) => (
                       <label key={key} className={`flex items-center gap-2.5 ${isSuperAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>

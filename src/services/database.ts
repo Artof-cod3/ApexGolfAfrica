@@ -69,6 +69,7 @@ const mapAdminRowToEntity = (admin: any): AdminUser => ({
     canManageClubs: admin.can_manage_clubs,
     canManageCaddies: admin.can_manage_caddies,
     canManageClubRates: admin.can_manage_club_rates,
+    canViewTransactions: Boolean(admin.can_view_transactions),
   },
 });
 
@@ -371,6 +372,7 @@ export async function createAdminUser(admin: Omit<AdminUser, 'id'>): Promise<Adm
       can_manage_clubs: admin.permissions.canManageClubs,
       can_manage_caddies: admin.permissions.canManageCaddies,
       can_manage_club_rates: admin.permissions.canManageClubRates,
+      can_view_transactions: admin.permissions.canViewTransactions,
     })
     .select()
     .single();
@@ -398,6 +400,8 @@ export async function updateAdminUser(id: number, updates: Partial<AdminUser>): 
       dbUpdates.can_manage_caddies = updates.permissions.canManageCaddies;
     if (updates.permissions.canManageClubRates !== undefined) 
       dbUpdates.can_manage_club_rates = updates.permissions.canManageClubRates;
+    if (updates.permissions.canViewTransactions !== undefined)
+      dbUpdates.can_view_transactions = updates.permissions.canViewTransactions;
   }
 
   const { error } = await supabase
