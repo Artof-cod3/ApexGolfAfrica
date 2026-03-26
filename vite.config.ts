@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['apexgolf-logo.svg'],
+      includeAssets: ['apexgolf-logo.svg', 'apex-admin-icon.svg', 'apex-admin-maskable.svg'],
       manifest: {
         id: '/admin',
         name: 'ApexGolf Admin',
@@ -22,10 +22,16 @@ export default defineConfig({
         theme_color: '#0F1F17',
         icons: [
           {
-            src: '/apexgolf-logo.svg',
+            src: '/apex-admin-icon.svg',
             sizes: 'any',
             type: 'image/svg+xml',
-            purpose: 'any maskable',
+            purpose: 'any',
+          },
+          {
+            src: '/apex-admin-maskable.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'maskable',
           },
         ],
       },

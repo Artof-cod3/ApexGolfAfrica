@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">ApexGolf Admin Maskable Icon</title>
+  <desc id="desc">Maskable app icon for ApexGolf admin app.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B1A13" />
+      <stop offset="100%" stop-color="#164E39" />
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F0E2B8" />
+      <stop offset="100%" stop-color="#B08A3E" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#bg)" />
+  <circle cx="840" cy="188" r="130" fill="#FFFFFF" opacity="0.08" />
+  <circle cx="176" cy="864" r="172" fill="#FFFFFF" opacity="0.06" />
+
+  <g transform="translate(512 512)">
+    <path
+      d="M0 -236L155 -176L194 -16L88 158L-88 158L-194 -16L-155 -176Z"
+      fill="none"
+      stroke="url(#gold)"
+      stroke-width="24"
+      stroke-linejoin="round"
+    />
+    <circle cx="0" cy="18" r="56" fill="none" stroke="#D2AB5D" stroke-width="12" />
+    <circle cx="0" cy="18" r="11" fill="#F3E7C8" />
+    <path d="M-38 -86L54 -54L-38 -20Z" fill="#E3C57C" />
+    <path d="M-56 -108V-190" stroke="#E8D6A6" stroke-width="10" stroke-linecap="round" />
+    <path d="M-54 -180L12 -157L-54 -132Z" fill="#EADAB0" />
+  </g>
+</svg>
