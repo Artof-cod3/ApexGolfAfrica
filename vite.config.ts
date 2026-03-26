@@ -20,6 +20,20 @@ export default defineConfig({
         orientation: 'portrait',
         background_color: '#0F1F17',
         theme_color: '#0F1F17',
+        shortcuts: [
+          {
+            name: 'Admin Console',
+            short_name: 'Admin',
+            description: 'Open ApexGolf Admin console',
+            url: '/admin',
+          },
+          {
+            name: 'Super Admin Console',
+            short_name: 'Super Admin',
+            description: 'Open ApexGolf Super Admin console',
+            url: '/super-admin',
+          },
+        ],
         icons: [
           {
             src: '/apex-admin-icon.svg',

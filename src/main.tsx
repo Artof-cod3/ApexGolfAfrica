@@ -7,6 +7,19 @@ import './tailwind.css';
 
 registerSW({ immediate: true });
 
+const PWA_LAUNCH_PATH_KEY = 'apexgolf_pwa_launch_path';
+
+const isStandalone =
+  window.matchMedia('(display-mode: standalone)').matches ||
+  ((window.navigator as Navigator & { standalone?: boolean }).standalone ?? false);
+
+if (isStandalone) {
+  const preferredPath = localStorage.getItem(PWA_LAUNCH_PATH_KEY);
+  if (preferredPath && preferredPath.startsWith('/') && window.location.pathname === '/admin' && preferredPath !== '/admin') {
+    window.history.replaceState({}, document.title, preferredPath);
+  }
+}
+
 const hideSplashScreen = () => {
   const splash = document.getElementById('app-splash');
   if (!splash) return;

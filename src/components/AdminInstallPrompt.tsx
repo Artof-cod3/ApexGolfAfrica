@@ -7,6 +7,7 @@ type BeforeInstallPromptEvent = Event & {
 };
 
 const adminPaths = new Set(['/admin', '/super-admin']);
+const PWA_LAUNCH_PATH_KEY = 'apexgolf_pwa_launch_path';
 
 const AdminInstallPrompt: React.FC = () => {
   const location = useLocation();
@@ -15,6 +16,7 @@ const AdminInstallPrompt: React.FC = () => {
   const [dismissed, setDismissed] = useState(false);
 
   const showOnThisRoute = useMemo(() => adminPaths.has(location.pathname), [location.pathname]);
+  const installLabel = location.pathname === '/super-admin' ? 'Install ApexGolf Super Admin App' : 'Install ApexGolf Admin App';
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -57,7 +59,7 @@ const AdminInstallPrompt: React.FC = () => {
         <div className="fixed bottom-5 left-1/2 z-[100] w-[min(92vw,520px)] -translate-x-1/2 rounded-2xl border border-[#C9A962]/40 bg-[#0F1F17] px-4 py-3 text-[#E5D5A8] shadow-2xl">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold">Install ApexGolf Admin App</p>
+              <p className="text-sm font-semibold">{installLabel}</p>
               <p className="text-xs text-[#E5D5A8]/85">Add this to your phone home screen for faster access.</p>
             </div>
             <div className="flex items-center gap-2">
@@ -72,6 +74,8 @@ const AdminInstallPrompt: React.FC = () => {
                 type="button"
                 onClick={async () => {
                   if (!deferredPrompt) return;
+                  const preferredPath = location.pathname === '/super-admin' ? '/super-admin' : '/admin';
+                  localStorage.setItem(PWA_LAUNCH_PATH_KEY, preferredPath);
                   await deferredPrompt.prompt();
                   const result = await deferredPrompt.userChoice;
                   if (result.outcome === 'accepted') {
