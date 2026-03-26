@@ -48,6 +48,7 @@ export type AuditTrailItem = {
 };
 
 const TEMP_PASSWORD_PREFIX = 'TEMP::';
+const allowPasswordLogin = import.meta.env.VITE_ENABLE_PASSWORD_LOGIN !== 'false';
 
 const isTemporaryPassword = (password: string | null | undefined) =>
   typeof password === 'string' && password.startsWith(TEMP_PASSWORD_PREFIX);
@@ -61,7 +62,7 @@ const mapAdminRowToEntity = (admin: any): AdminUser => ({
   id: admin.id,
   name: admin.name,
   email: admin.email,
-  password: stripTemporaryPrefix(admin.password),
+  password: '',
   mustChangePassword: isTemporaryPassword(admin.password),
   role: admin.role as 'admin' | 'super-admin',
   permissions: {
@@ -432,6 +433,10 @@ export async function deleteAdminUser(id: number): Promise<boolean> {
 }
 
 export async function loginAdmin(email: string, password: string): Promise<AdminUser | null> {
+  if (!allowPasswordLogin) {
+    return null;
+  }
+
   const { data, error } = await supabase
     .from('admin_users')
     .select('*')

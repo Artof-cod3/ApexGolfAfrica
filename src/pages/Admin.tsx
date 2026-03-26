@@ -57,6 +57,7 @@ const navTitles: Record<NavView, string> = {
 const colorOptions = ['bg-green-900', 'bg-blue-900', 'bg-yellow-800', 'bg-stone-800', 'bg-emerald-900'];
 const ADMIN_SESSION_TTL_MS = 5 * 60 * 1000;
 const SUPER_ADMIN_SESSION_TTL_MS = 5 * 60 * 1000;
+const passwordLoginEnabled = import.meta.env.VITE_ENABLE_PASSWORD_LOGIN !== 'false';
 
 const getInitials = (name: string) =>
   name
@@ -213,6 +214,16 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
     () => currentAdmin?.role === 'super-admin' || Boolean(currentAdmin?.permissions.canManageClubRates),
     [currentAdmin],
   );
+  const canViewTransactions = useMemo(
+    () => currentAdmin?.role === 'super-admin' || Boolean(currentAdmin?.permissions.canViewTransactions),
+    [currentAdmin],
+  );
+
+  useEffect(() => {
+    if (currentView === 'transactions' && !canViewTransactions) {
+      setCurrentView('dashboard');
+    }
+  }, [canViewTransactions, currentView]);
 
   const filteredCaddies = useMemo(() => {
     const search = caddieSearch.trim().toLowerCase();
@@ -286,6 +297,8 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
   }, [admins, loginHistory, loginRoleFilter, loginSearch, loginTimeFilter]);
 
   const filteredTransactions = useMemo(() => {
+    if (!canViewTransactions) return [];
+
     const search = transactionSearch.trim().toLowerCase();
 
     return bookings.filter((booking) => {
@@ -303,7 +316,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 
       return statusPass && searchPass;
     });
-  }, [bookings, caddies, clubs, transactionSearch, transactionStatusFilter]);
+  }, [bookings, caddies, canViewTransactions, clubs, transactionSearch, transactionStatusFilter]);
 
   const filteredAuditTrail = useMemo(() => {
     const search = auditSearch.trim().toLowerCase();
@@ -367,6 +380,11 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
   };
 
   const exportTransactionsCsv = () => {
+    if (!canViewTransactions) {
+      alert('You do not have permission to export transactions.');
+      return;
+    }
+
     const rows = filteredTransactions.map((booking) => {
       const clubName = clubs.find((club) => club.id === booking.clubId)?.name || 'Unknown';
       const caddieName = caddies.find((caddie) => caddie.id === booking.caddieId)?.name || 'Unknown';
@@ -411,6 +429,11 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (!passwordLoginEnabled) {
+      setAuthError('Password login is disabled. Use Continue with Google.');
+      return;
+    }
 
     const matchedAdmin = await loginAdmin(email.toLowerCase().trim(), password);
 
@@ -796,6 +819,14 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 
             <div className="p-4 sm:p-6 lg:p-8">
               <form onSubmit={handleLogin} className="space-y-5">
+                {!passwordLoginEnabled && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    Password login is disabled in this environment for security.
+                  </div>
+                )}
+
+                {passwordLoginEnabled && (
+                  <>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Email Address</label>
                   <input
@@ -842,6 +873,17 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                 >
                   Sign In
                 </button>
+                  </>
+                )}
+
+                {authError && !passwordLoginEnabled && (
+                  <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                    <svg className="w-4 h-4 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <p className="text-sm text-red-600">{authError}</p>
+                  </div>
+                )}
 
                 <button
                   type="button"
@@ -1046,6 +1088,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 
           <button
             onClick={() => setCurrentView('transactions')}
+            disabled={!canViewTransactions}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition ${
               currentView === 'transactions' ? 'bg-white/10' : 'hover:bg-white/5'
             }`}
@@ -1053,7 +1096,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <span>Transactions</span>
+            <span>{canViewTransactions ? 'Transactions' : 'Transactions (Locked)'}</span>
           </button>
 
           <button
@@ -1181,8 +1224,8 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                 </div>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{bookings.length}</p>
-                <p className="text-green-600 text-xs mt-1">↗ All time</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{canViewTransactions ? bookings.length : 'Locked'}</p>
+                <p className="text-green-600 text-xs mt-1">{canViewTransactions ? '↗ All time' : 'Super admin approval required'}</p>
               </div>
 
               <div className="bg-white rounded-lg p-5 shadow-sm border border-gray-100">
@@ -1192,8 +1235,8 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
                 </div>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-900">Ksh {totalRevenue.toLocaleString()}</p>
-                <p className="text-green-600 text-xs mt-1">↗ Total earned</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{canViewTransactions ? `Ksh ${totalRevenue.toLocaleString()}` : 'Locked'}</p>
+                <p className="text-green-600 text-xs mt-1">{canViewTransactions ? '↗ Total earned' : 'Super admin approval required'}</p>
               </div>
 
               <div className="bg-white rounded-lg p-5 shadow-sm border border-gray-100">
@@ -1213,7 +1256,11 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
               {/* Recent Transactions */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Transactions</h2>
-                {bookings.length === 0 ? (
+                {!canViewTransactions ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    You do not have access to transaction history. Request a super admin to enable "View Transactions" for your account.
+                  </div>
+                ) : bookings.length === 0 ? (
                   <div className="text-center py-12">
                     <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -1320,13 +1367,14 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                 </button>
 
                 <button
-                  onClick={() => setCurrentView('transactions')}
-                  className="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                  onClick={() => canViewTransactions && setCurrentView('transactions')}
+                  disabled={!canViewTransactions}
+                  className="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg className="w-10 h-10 text-gray-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
-                  <p className="font-medium text-gray-900">New Transaction</p>
+                  <p className="font-medium text-gray-900">{canViewTransactions ? 'New Transaction' : 'Transactions Locked'}</p>
                 </button>
               </div>
             </div>
@@ -1872,6 +1920,15 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
         {/* Transactions View */}
         {currentView === 'transactions' && (
           <div className="p-4 sm:p-6 lg:p-8">
+            {!canViewTransactions ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
+                <h2 className="text-xl font-semibold text-amber-900">Transactions Access Restricted</h2>
+                <p className="mt-2 text-sm text-amber-800">
+                  Super admin approval is required before this account can view transaction history.
+                </p>
+              </div>
+            ) : (
+              <>
             <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Transactions</h1>
@@ -2014,6 +2071,8 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                 </table>
                 </div>
               </div>
+            )}
+              </>
             )}
           </div>
         )}
