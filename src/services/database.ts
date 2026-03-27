@@ -50,6 +50,11 @@ export type AuditTrailItem = {
 const TEMP_PASSWORD_PREFIX = 'TEMP::';
 const allowPasswordLogin = import.meta.env.VITE_ENABLE_PASSWORD_LOGIN !== 'false';
 const PENDING_BOOKING_LOCK_MINUTES = 5;
+let lastCreateBookingError: string | null = null;
+
+export function getLastCreateBookingError(): string | null {
+  return lastCreateBookingError;
+}
 
 const normalizePhoneForCompare = (value: string | null | undefined): string =>
   String(value ?? '').replace(/\D/g, '');
@@ -767,6 +772,8 @@ export async function fetchBookings(): Promise<Booking[]> {
 }
 
 export async function createBooking(booking: Omit<Booking, 'id' | 'createdAt'>): Promise<Booking | null> {
+  lastCreateBookingError = null;
+
   const lookups = await getBookingLookups();
   const selectedCaddieName = lookups.caddieNameById.get(booking.caddieId) ?? null;
   const pendingCutoffIso = new Date(Date.now() - PENDING_BOOKING_LOCK_MINUTES * 60 * 1000).toISOString();
@@ -792,6 +799,7 @@ export async function createBooking(booking: Omit<Booking, 'id' | 'createdAt'>):
       if (!slotError && slotRows && slotRows.length > 0) {
         const hasConfirmed = slotRows.some((row: any) => row.status === 'confirmed');
         if (hasConfirmed) {
+          lastCreateBookingError = 'This caddie already has a confirmed booking for that date/time.';
           console.error('Booking conflict: confirmed booking already exists for selected slot.');
           return null;
         }
@@ -812,6 +820,7 @@ export async function createBooking(booking: Omit<Booking, 'id' | 'createdAt'>):
         }
       }
 
+      lastCreateBookingError = 'This caddie currently has an active pending booking for that date/time.';
       console.error('Booking conflict: caddie already booked for selected date and time.');
       return null;
     }
@@ -840,6 +849,7 @@ export async function createBooking(booking: Omit<Booking, 'id' | 'createdAt'>):
     .single();
 
   if (error) {
+    lastCreateBookingError = error.message || 'Booking insert failed.';
     console.error('Error creating booking:', error);
     return null;
   }

@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Booking } from '../types/booking';
 import type { Caddie, Club } from '../types/entities';
-import { createBooking, fetchBookingByReference, updateBooking } from '../services/database';
+import { createBooking, fetchBookingByReference, getLastCreateBookingError, updateBooking } from '../services/database';
 import { initiateQuickwaveCheckout } from '../services/quickwave.ts';
 
 type Props = {
@@ -293,7 +293,12 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
     try {
       savedBooking = await createBooking(bookingPayload);
       if (!savedBooking) {
-        alert('Failed to save booking. That caddie may already be booked for the selected slot. Please choose another caddie or time.');
+        const reason = getLastCreateBookingError();
+        if (reason) {
+          alert(`Failed to save booking: ${reason}`);
+        } else {
+          alert('Failed to save booking. That caddie may already be booked for the selected slot. Please choose another caddie or time.');
+        }
         return;
       }
 
