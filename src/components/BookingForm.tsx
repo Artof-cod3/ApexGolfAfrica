@@ -21,6 +21,7 @@ const equipment = [
 const teeTimes = ["06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "14:00"];
 
 const PENDING_PAYMENT_STORAGE_KEY = 'apexgolf_pending_quickwave_payment';
+const PENDING_BOOKING_LOCK_MS = 5 * 60 * 1000;
 
 type PendingPaymentSession = {
   bookingId: number;
@@ -78,13 +79,25 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   const unavailableCaddieIds = useMemo(() => {
     if (!date || !time) return new Set<number>();
 
+    const lockCutoff = Date.now() - PENDING_BOOKING_LOCK_MS;
+
+    const isActiveLock = (booking: Booking) => {
+      if (booking.status === 'confirmed') return true;
+      if (booking.status !== 'pending') return false;
+
+      if (!booking.createdAt) return false;
+      const createdAt = new Date(booking.createdAt).getTime();
+      if (Number.isNaN(createdAt)) return false;
+      return createdAt >= lockCutoff;
+    };
+
     return new Set(
       bookings
         .filter(
           (booking) =>
             booking.date === date &&
             booking.time === time &&
-            (booking.status === 'pending' || booking.status === 'confirmed') &&
+            isActiveLock(booking) &&
             booking.caddieId > 0,
         )
         .map((booking) => booking.caddieId),

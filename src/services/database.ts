@@ -49,6 +49,10 @@ export type AuditTrailItem = {
 
 const TEMP_PASSWORD_PREFIX = 'TEMP::';
 const allowPasswordLogin = import.meta.env.VITE_ENABLE_PASSWORD_LOGIN !== 'false';
+const PENDING_BOOKING_LOCK_MINUTES = 5;
+
+const normalizePhoneForCompare = (value: string | null | undefined): string =>
+  String(value ?? '').replace(/\D/g, '');
 
 const isTemporaryPassword = (password: string | null | undefined) =>
   typeof password === 'string' && password.startsWith(TEMP_PASSWORD_PREFIX);
@@ -157,8 +161,7 @@ async function hasCaddieBookingConflict(input: {
   time: string;
   excludeBookingId?: number;
 }): Promise<boolean> {
-  const pendingReservationTtlMinutes = 15;
-  const pendingCutoffIso = new Date(Date.now() - pendingReservationTtlMinutes * 60 * 1000).toISOString();
+  const pendingCutoffIso = new Date(Date.now() - PENDING_BOOKING_LOCK_MINUTES * 60 * 1000).toISOString();
 
   let stalePendingQuery = supabase
     .from('bookings')
@@ -766,6 +769,7 @@ export async function fetchBookings(): Promise<Booking[]> {
 export async function createBooking(booking: Omit<Booking, 'id' | 'createdAt'>): Promise<Booking | null> {
   const lookups = await getBookingLookups();
   const selectedCaddieName = lookups.caddieNameById.get(booking.caddieId) ?? null;
+  const pendingCutoffIso = new Date(Date.now() - PENDING_BOOKING_LOCK_MINUTES * 60 * 1000).toISOString();
 
   if (selectedCaddieName && (booking.status === 'pending' || booking.status === 'confirmed')) {
     const hasConflict = await hasCaddieBookingConflict({
@@ -775,6 +779,39 @@ export async function createBooking(booking: Omit<Booking, 'id' | 'createdAt'>):
     });
 
     if (hasConflict) {
+      const { data: slotRows, error: slotError } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('caddie_name', selectedCaddieName)
+        .eq('date', booking.date)
+        .eq('time', booking.time)
+        .in('status', ['pending', 'confirmed'])
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!slotError && slotRows && slotRows.length > 0) {
+        const hasConfirmed = slotRows.some((row: any) => row.status === 'confirmed');
+        if (hasConfirmed) {
+          console.error('Booking conflict: confirmed booking already exists for selected slot.');
+          return null;
+        }
+
+        const requestedEmail = booking.email.trim().toLowerCase();
+        const requestedPhone = normalizePhoneForCompare(booking.phone);
+
+        const reusablePending = slotRows.find((row: any) => {
+          const isPending = row.status === 'pending';
+          const isRecentPending = typeof row.created_at === 'string' && row.created_at >= pendingCutoffIso;
+          const sameEmail = String(row.email ?? '').trim().toLowerCase() === requestedEmail;
+          const samePhone = normalizePhoneForCompare(row.phone) === requestedPhone;
+          return isPending && isRecentPending && sameEmail && samePhone;
+        });
+
+        if (reusablePending) {
+          return mapBookingRowToBooking(reusablePending, lookups);
+        }
+      }
+
       console.error('Booking conflict: caddie already booked for selected date and time.');
       return null;
     }
