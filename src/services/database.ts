@@ -281,13 +281,19 @@ export async function updateClub(id: number, updates: Partial<Club>): Promise<bo
   if (updates.location !== undefined) dbUpdates.location = updates.location;
   if (updates.ratePerPlayer !== undefined) dbUpdates.rate_per_player = updates.ratePerPlayer;
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('clubs')
     .update(dbUpdates)
-    .eq('id', id);
+    .eq('id', id)
+    .select('id');
 
   if (error) {
     console.error('Error updating club:', error);
+    return false;
+  }
+
+  if (!data || data.length === 0) {
+    console.error('No club row was updated. This is usually caused by missing update permissions or a non-existent club ID.', { id, dbUpdates });
     return false;
   }
 
