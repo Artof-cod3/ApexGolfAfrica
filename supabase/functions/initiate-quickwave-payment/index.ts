@@ -146,7 +146,15 @@ Deno.serve(async (req: Request) => {
     }
 
     const result = await quickwaveResponse.json();
-    const checkoutUrl = result?.checkout_url || result?.payment_url || result?.data?.checkout_url;
+    const checkoutUrl =
+      result?.checkout_url ||
+      result?.checkoutUrl ||
+      result?.payment_url ||
+      result?.paymentUrl ||
+      result?.data?.checkout_url ||
+      result?.data?.checkoutUrl ||
+      result?.data?.payment_url ||
+      result?.data?.paymentUrl;
 
     if (!checkoutUrl) {
       return new Response(JSON.stringify({ error: 'Quickwave response did not include checkout URL.', raw: result }), {
@@ -158,7 +166,11 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         checkoutUrl,
-        paymentReference: result?.reference || result?.data?.reference || body.bookingReference,
+        paymentReference:
+          result?.reference ||
+          result?.data?.reference ||
+          result?.data?.waveTransactionId ||
+          body.bookingReference,
       }),
       {
         status: 200,
