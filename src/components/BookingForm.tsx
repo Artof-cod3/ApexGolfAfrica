@@ -2,8 +2,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Booking } from '../types/booking';
 import type { Caddie, Club } from '../types/entities';
-import { createBooking } from '../services/database';
-import { sendBookingReceiptEmail } from '../services/receipt';
+import { createBooking, fetchBookingByReference, updateBooking } from '../services/database';
+import { initiateQuickwaveCheckout } from '../services/quickwave.ts';
 
 type Props = {
   bookings: Booking[];
@@ -20,11 +20,38 @@ const equipment = [
 
 const teeTimes = ["06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "14:00"];
 
+const PENDING_PAYMENT_STORAGE_KEY = 'apexgolf_pending_quickwave_payment';
+
+type PendingPaymentSession = {
+  bookingId: number;
+  bookingReference: string;
+};
+
+function normalizeKenyanPhone(value: string): string {
+  const digits = value.replace(/\D/g, '');
+
+  if (digits.startsWith('254') && digits.length === 12) {
+    return `+${digits}`;
+  }
+
+  if (digits.startsWith('0') && digits.length === 10) {
+    return `+254${digits.slice(1)}`;
+  }
+
+  if (digits.length === 9) {
+    return `+254${digits}`;
+  }
+
+  return value.trim();
+}
+
 const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies }) => {
   const [step, setStep] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
   const [bookingRef, setBookingRef] = useState('');
   const [copiedRef, setCopiedRef] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentNotice, setPaymentNotice] = useState('');
   
   // Form state
   const [clubId, setClubId] = useState<number | null>(null);
@@ -95,6 +122,94 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
     return () => window.clearTimeout(timer);
   }, [step]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('payment');
+
+    if (!paymentStatus) return;
+
+    const raw = sessionStorage.getItem(PENDING_PAYMENT_STORAGE_KEY);
+    const clearPaymentQuery = () => {
+      const target = `${window.location.pathname}${window.location.hash}`;
+      window.history.replaceState({}, document.title, target);
+    };
+
+    if (!raw) {
+      clearPaymentQuery();
+      return;
+    }
+
+    let pending: PendingPaymentSession | null = null;
+    try {
+      pending = JSON.parse(raw) as PendingPaymentSession;
+    } catch {
+      sessionStorage.removeItem(PENDING_PAYMENT_STORAGE_KEY);
+      clearPaymentQuery();
+      return;
+    }
+
+    const waitForWebhookConfirmation = async (reference: string): Promise<'confirmed' | 'cancelled' | 'pending'> => {
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const latest = await fetchBookingByReference(reference);
+
+        if (latest?.status === 'confirmed') {
+          return 'confirmed';
+        }
+
+        if (latest?.status === 'cancelled') {
+          return 'cancelled';
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      }
+
+      return 'pending';
+    };
+
+    const finalizePayment = async () => {
+      if (!pending) return;
+
+      if (paymentStatus === 'success') {
+        setPaymentNotice('Payment received. Finalizing your booking confirmation...');
+        const result = await waitForWebhookConfirmation(pending.bookingReference);
+
+        if (result === 'confirmed') {
+          const latest = await fetchBookingByReference(pending.bookingReference);
+
+          if (latest) {
+            setBookings((prev) => {
+              const exists = prev.some((booking) => booking.id === latest.id);
+              if (!exists) return [latest, ...prev];
+              return prev.map((booking) => (booking.id === latest.id ? latest : booking));
+            });
+          }
+
+          setBookingRef(pending.bookingReference);
+          setShowSuccess(true);
+          setPaymentNotice('');
+        } else if (result === 'cancelled') {
+          alert('Payment was not completed. Your booking was cancelled.');
+          setPaymentNotice('');
+        } else {
+          alert('Payment is still being verified. Refresh shortly or use Find Booking with your reference.');
+          setPaymentNotice('Payment submitted. Waiting for provider confirmation...');
+        }
+      } else {
+        const cancelledBookingId = pending.bookingId;
+        await updateBooking(cancelledBookingId, { status: 'cancelled' });
+        setBookings((prev) => prev.map((booking) => (
+          booking.id === cancelledBookingId ? { ...booking, status: 'cancelled' } : booking
+        )));
+        alert('Payment was cancelled. You can retry checkout to complete your booking.');
+      }
+
+      sessionStorage.removeItem(PENDING_PAYMENT_STORAGE_KEY);
+      clearPaymentQuery();
+    };
+
+    void finalizePayment();
+  }, [setBookings]);
+
   const getSelectedClubRate = () => {
     const selectedClub = clubs.find((club) => club.id === clubId);
     return selectedClub?.ratePerPlayer ?? 3500;
@@ -134,8 +249,11 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   };
 
   const handleSubmit = async () => {
+    setIsPaying(true);
+
     if (unavailableCaddieIds.has(caddieId!)) {
       alert('That caddie has just been booked for this date/time. Please choose another caddie.');
+      setIsPaying(false);
       return;
     }
 
@@ -154,37 +272,65 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
       delivery,
       addons,
       total: calculateTotal(),
-      status: 'confirmed',
+      status: 'pending',
     };
 
-    const savedBooking = await createBooking(bookingPayload);
-    if (!savedBooking) {
-      alert('Failed to save booking. That caddie may already be booked for the selected slot. Please choose another caddie or time.');
-      return;
+    let savedBooking: Booking | null = null;
+
+    try {
+      savedBooking = await createBooking(bookingPayload);
+      if (!savedBooking) {
+        alert('Failed to save booking. That caddie may already be booked for the selected slot. Please choose another caddie or time.');
+        return;
+      }
+
+      const createdBooking = savedBooking;
+
+      setBookings((prev) => [...prev, createdBooking]);
+
+      const generatedReference = createdBooking.bookingReference ?? `APX-${createdBooking.id}`;
+      const normalizedPhone = normalizeKenyanPhone(createdBooking.phone);
+
+      const pendingSession: PendingPaymentSession = {
+        bookingId: createdBooking.id,
+        bookingReference: generatedReference,
+      };
+
+      sessionStorage.setItem(PENDING_PAYMENT_STORAGE_KEY, JSON.stringify(pendingSession));
+
+      const baseReturnUrl = `${window.location.origin}${window.location.pathname}`;
+      const successUrl = `${baseReturnUrl}?payment=success&bookingId=${createdBooking.id}`;
+      const cancelUrl = `${baseReturnUrl}?payment=cancelled&bookingId=${createdBooking.id}`;
+
+      const payment = await initiateQuickwaveCheckout({
+        bookingReference: generatedReference,
+        amount: createdBooking.total,
+        currency: 'KES',
+        firstName: createdBooking.firstName,
+        lastName: createdBooking.lastName,
+        email: createdBooking.email,
+        phone: normalizedPhone,
+        successUrl,
+        cancelUrl,
+      });
+
+      window.location.href = payment.checkoutUrl;
+    } catch (error) {
+      console.error('Quickwave checkout initialization failed:', error);
+
+      if (savedBooking?.id) {
+        const failedBookingId = savedBooking.id;
+        await updateBooking(failedBookingId, { status: 'cancelled' });
+        setBookings((prev) => prev.map((booking) => (
+          booking.id === failedBookingId ? { ...booking, status: 'cancelled' } : booking
+        )));
+      }
+
+      sessionStorage.removeItem(PENDING_PAYMENT_STORAGE_KEY);
+      alert('Unable to start Quickwave payment right now. Please try again.');
+    } finally {
+      setIsPaying(false);
     }
-
-    setBookings([...bookings, savedBooking]);
-    const generatedReference = savedBooking.bookingReference ?? `APX-${savedBooking.id}`;
-    setBookingRef(generatedReference);
-
-    const selectedClubName = clubs.find((club) => club.id === savedBooking.clubId)?.name ?? 'Apex Club';
-    const selectedCaddieName = caddies.find((caddie) => caddie.id === savedBooking.caddieId)?.name ?? 'Assigned at club';
-
-    void sendBookingReceiptEmail({
-      bookingReference: generatedReference,
-      firstName: savedBooking.firstName,
-      lastName: savedBooking.lastName,
-      email: savedBooking.email,
-      phone: savedBooking.phone,
-      clubName: selectedClubName,
-      caddieName: selectedCaddieName,
-      date: savedBooking.date,
-      time: savedBooking.time,
-      players: savedBooking.players,
-      total: savedBooking.total,
-    });
-
-    setShowSuccess(true);
   };
 
   const nextStep = () => {
@@ -464,7 +610,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
                       </div>
 
                       {/* Stats */}
-                      <div className="text-right flex-shrink-0">
+                      <div className="text-right shrink-0">
                         <div className="text-xs text-gray-500 mb-1">Total Rounds</div>
                         <div className="text-lg font-bold text-gray-900">{c.rounds}</div>
                       </div>
@@ -695,18 +841,23 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
 
             <div className="bg-white rounded-xl p-8 shadow-sm">
               <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Payment Method</h4>
+              {paymentNotice && (
+                <div className="mb-5 rounded-lg border border-[#c5a059]/30 bg-[#f8f6f1] px-4 py-3 text-sm font-medium text-[#0f281e]">
+                  {paymentNotice}
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-4 mb-8">
                 <button className="border-2 border-[#c5a059] bg-[#c5a059]/10 rounded-xl p-5 flex flex-col items-center gap-3">
                   <span className="text-3xl">📱</span>
                   <span className="text-sm font-bold text-gray-800">M-Pesa</span>
                 </button>
-                <button className="border border-gray-200 rounded-xl p-5 flex flex-col items-center gap-3 opacity-60">
+                <button className="border-2 border-[#c5a059] bg-[#c5a059]/10 rounded-xl p-5 flex flex-col items-center gap-3">
                   <span className="text-3xl">💳</span>
-                  <span className="text-sm font-bold text-gray-500">Card</span>
+                  <span className="text-sm font-bold text-gray-800">Card</span>
                 </button>
-                <button className="border border-gray-200 rounded-xl p-5 flex flex-col items-center gap-3 opacity-60">
+                <button className="border border-gray-200 rounded-xl p-5 flex flex-col items-center gap-3">
                   <span className="text-3xl">🏦</span>
-                  <span className="text-sm font-bold text-gray-500">Bank</span>
+                  <span className="text-sm font-bold text-gray-700">Bank (if enabled in wallet)</span>
                 </button>
               </div>
 
@@ -723,7 +874,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
                   />
                 </div>
                 <p className="text-sm text-gray-500 mt-3 leading-relaxed">
-                  You will receive an M-Pesa prompt on your phone. Enter your PIN to confirm.
+                  You will be redirected to Quickwave checkout where customers can pay using M-Pesa or Card.
                 </p>
               </div>
             </div>
@@ -827,10 +978,11 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
             ) : (
               <button 
                 onClick={handleSubmit}
-                className="flex-1 bg-[#0f281e] text-white font-bold py-4 rounded-xl shadow-md hover:bg-green-900 transition flex justify-center items-center gap-2 text-lg"
+                disabled={isPaying}
+                className={`flex-1 bg-[#0f281e] text-white font-bold py-4 rounded-xl shadow-md transition flex justify-center items-center gap-2 text-lg ${isPaying ? 'opacity-70 cursor-not-allowed' : 'hover:bg-green-900'}`}
               >
                 <span>🔒</span>
-                <span>Confirm & Pay</span>
+                <span>{isPaying ? 'Starting Quickwave Checkout...' : 'Confirm & Pay'}</span>
               </button>
             )}
           </div>

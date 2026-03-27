@@ -157,25 +157,67 @@ async function hasCaddieBookingConflict(input: {
   time: string;
   excludeBookingId?: number;
 }): Promise<boolean> {
-  let query = supabase
+  const pendingReservationTtlMinutes = 15;
+  const pendingCutoffIso = new Date(Date.now() - pendingReservationTtlMinutes * 60 * 1000).toISOString();
+
+  let stalePendingQuery = supabase
+    .from('bookings')
+    .select('id', { count: 'exact', head: false })
+    .eq('caddie_name', input.caddieName)
+    .eq('date', input.date)
+    .eq('time', input.time)
+    .eq('status', 'pending')
+    .lt('created_at', pendingCutoffIso);
+
+  if (input.excludeBookingId !== undefined) {
+    stalePendingQuery = stalePendingQuery.neq('id', input.excludeBookingId);
+  }
+
+  const { data: stalePendingRows, error: stalePendingError } = await stalePendingQuery;
+
+  if (!stalePendingError && stalePendingRows && stalePendingRows.length > 0) {
+    const staleIds = stalePendingRows.map((row: any) => row.id);
+    // Release stale pending reservations so abandoned checkouts don't block future bookings.
+    await supabase
+      .from('bookings')
+      .update({ status: 'cancelled' })
+      .in('id', staleIds)
+      .eq('status', 'pending');
+  }
+
+  let confirmedQuery = supabase
     .from('bookings')
     .select('id', { count: 'exact', head: true })
     .eq('caddie_name', input.caddieName)
     .eq('date', input.date)
     .eq('time', input.time)
-    .in('status', ['pending', 'confirmed']);
+    .eq('status', 'confirmed');
+
+  let recentPendingQuery = supabase
+    .from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('caddie_name', input.caddieName)
+    .eq('date', input.date)
+    .eq('time', input.time)
+    .eq('status', 'pending')
+    .gte('created_at', pendingCutoffIso);
 
   if (input.excludeBookingId !== undefined) {
-    query = query.neq('id', input.excludeBookingId);
+    confirmedQuery = confirmedQuery.neq('id', input.excludeBookingId);
+    recentPendingQuery = recentPendingQuery.neq('id', input.excludeBookingId);
   }
 
-  const { count, error } = await query;
-  if (error) {
-    console.error('Error checking caddie booking conflict:', error);
+  const [{ count: confirmedCount, error: confirmedError }, { count: recentPendingCount, error: pendingError }] = await Promise.all([
+    confirmedQuery,
+    recentPendingQuery,
+  ]);
+
+  if (confirmedError || pendingError) {
+    console.error('Error checking caddie booking conflict:', confirmedError ?? pendingError);
     return false;
   }
 
-  return (count ?? 0) > 0;
+  return (confirmedCount ?? 0) + (recentPendingCount ?? 0) > 0;
 }
 
 // ============================================
