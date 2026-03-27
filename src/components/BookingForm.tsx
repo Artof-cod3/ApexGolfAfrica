@@ -4,6 +4,7 @@ import type { Booking } from '../types/booking';
 import type { Caddie, Club } from '../types/entities';
 import { createBooking, fetchBookingByReference, getLastCreateBookingError, updateBooking } from '../services/database';
 import { initiateQuickwaveCheckout } from '../services/quickwave';
+import { notifyCustomerForBooking } from '../services/customerCommunication';
 
 type Props = {
   bookings: Booking[];
@@ -305,6 +306,14 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
       const createdBooking = savedBooking;
 
       setBookings((prev) => [...prev, createdBooking]);
+
+      // Do not block checkout start if communication delivery fails.
+      void notifyCustomerForBooking({
+        booking: createdBooking,
+        clubs,
+        caddies,
+        templateType: 'booking_pending_payment',
+      });
 
       const generatedReference = createdBooking.bookingReference ?? `APX-${createdBooking.id}`;
       const normalizedPhone = normalizeKenyanPhone(createdBooking.phone);

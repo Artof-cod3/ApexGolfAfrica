@@ -119,14 +119,23 @@ async function sha256Hex(payload: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function createReceiptHtml(booking: BookingRow): string {
+function createStatusEmailHtml(booking: BookingRow, targetStatus: 'confirmed' | 'cancelled'): string {
+  const isConfirmed = targetStatus === 'confirmed';
+  const badge = isConfirmed ? 'Confirmed' : 'Payment Cancelled';
+  const title = isConfirmed ? 'Booking Confirmed' : 'Booking Cancelled';
+  const subtitle = isConfirmed
+    ? 'Thank you for choosing ApexGolf Africa'
+    : 'Your payment was not completed. You can place a new booking anytime.';
+  const amountLabel = isConfirmed ? 'Total Paid' : 'Cancelled Amount';
+  const accent = isConfirmed ? '#2f3729' : '#7a2e2e';
+
   return `
     <div style="margin:0;padding:24px 10px;background:#f2f4ef;">
       <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #dde4d8;border-radius:18px;overflow:hidden;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;color:#1f2937;box-shadow:0 16px 40px -24px rgba(15,40,30,0.55);">
         <div style="padding:22px 20px 30px;background:linear-gradient(180deg,#e8ebe4 0%,#f7f8f5 65%,#ffffff 100%);text-align:center;border-bottom:1px solid #e6ece2;">
-          <div style="display:inline-block;padding:6px 14px;border-radius:999px;background:#c5a028;color:#ffffff;font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:700;">Confirmed</div>
-          <h1 style="margin:14px 0 6px;font-size:30px;line-height:1.2;color:#2f3729;font-family:Georgia,'Times New Roman',serif;">Booking Confirmed</h1>
-          <p style="margin:0;font-size:13px;color:#536745;">Thank you for choosing ApexGolf Africa</p>
+          <div style="display:inline-block;padding:6px 14px;border-radius:999px;background:${accent};color:#ffffff;font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:700;">${badge}</div>
+          <h1 style="margin:14px 0 6px;font-size:30px;line-height:1.2;color:#2f3729;font-family:Georgia,'Times New Roman',serif;">${title}</h1>
+          <p style="margin:0;font-size:13px;color:#536745;">${subtitle}</p>
         </div>
 
         <div style="padding:18px 20px 8px;">
@@ -171,10 +180,10 @@ function createReceiptHtml(booking: BookingRow): string {
         </div>
 
         <div style="padding:16px 20px 0;">
-          <div style="background:#2f3729;border-radius:14px;padding:16px 18px;color:#ffffff;">
+            <div style="background:${accent};border-radius:14px;padding:16px 18px;color:#ffffff;">
             <table role="presentation" style="width:100%;border-collapse:collapse;">
               <tr>
-                <td style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#d1d8c9;font-weight:700;">Total Paid</td>
+                  <td style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#d1d8c9;font-weight:700;">${amountLabel}</td>
                 <td style="text-align:right;font-size:27px;line-height:1.2;font-weight:800;color:#ffffff;">Ksh ${Number(booking.total ?? 0).toLocaleString('en-KE')}</td>
               </tr>
             </table>
@@ -198,14 +207,17 @@ function createReceiptHtml(booking: BookingRow): string {
   `;
 }
 
-async function sendReceiptEmail(booking: BookingRow): Promise<void> {
+async function sendStatusEmail(booking: BookingRow, targetStatus: 'confirmed' | 'cancelled'): Promise<void> {
   const apiKey = Deno.env.get('RESEND_API_KEY');
   const fromEmail = Deno.env.get('RECEIPT_FROM_EMAIL') || 'ApexGolf Africa <onboarding@resend.dev>';
 
   if (!apiKey || !booking.email) return;
 
-  const html = createReceiptHtml(booking);
+  const html = createStatusEmailHtml(booking, targetStatus);
   const reference = booking.booking_reference ?? `APX-${booking.id}`;
+  const subject = targetStatus === 'confirmed'
+    ? `ApexGolf Booking Confirmation: ${reference}`
+    : `ApexGolf Payment Cancelled: ${reference}`;
 
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -216,7 +228,7 @@ async function sendReceiptEmail(booking: BookingRow): Promise<void> {
     body: JSON.stringify({
       from: fromEmail,
       to: [booking.email],
-      subject: `ApexGolf Booking Confirmation: ${reference}`,
+      subject,
       html,
     }),
   });
@@ -479,10 +491,8 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    if (targetStatus === 'confirmed') {
-      const confirmedBooking = { ...booking, status: targetStatus } as BookingRow;
-      await sendReceiptEmail(confirmedBooking);
-    }
+    const latestBooking = { ...booking, status: targetStatus } as BookingRow;
+    await sendStatusEmail(latestBooking, targetStatus);
 
     await admin
       .from('quickwave_webhook_events')
