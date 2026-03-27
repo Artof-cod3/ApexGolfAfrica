@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Booking } from '../types/booking';
 import type { Caddie, Club } from '../types/entities';
 import { createBooking, fetchBookingByReference, getLastCreateBookingError, updateBooking } from '../services/database';
-import { initiateQuickwaveCheckout } from '../services/quickwave.ts';
+import { initiateQuickwaveCheckout } from '../services/quickwave';
 
 type Props = {
   bookings: Booking[];
