@@ -264,8 +264,8 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   const handleSubmit = async () => {
     setIsPaying(true);
 
-    if (unavailableCaddieIds.has(caddieId!)) {
-      alert('That caddie has just been booked for this date/time. Please choose another caddie.');
+    if (!caddieId) {
+      alert('Please select a caddie before continuing.');
       setIsPaying(false);
       return;
     }
@@ -297,7 +297,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
         if (reason) {
           alert(`Failed to save booking: ${reason}`);
         } else {
-          alert('Failed to save booking. That caddie may already be booked for the selected slot. Please choose another caddie or time.');
+          alert('Failed to save booking (diagnostic v2). Please retry in a few seconds, then contact support if this persists.');
         }
         return;
       }
