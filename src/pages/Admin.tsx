@@ -94,6 +94,8 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
   const [clubName, setClubName] = useState('');
   const [clubLocation, setClubLocation] = useState('');
   const [clubRate, setClubRate] = useState(3500);
+  const [clubRateDrafts, setClubRateDrafts] = useState<Record<number, string>>({});
+  const [updatingClubRateId, setUpdatingClubRateId] = useState<number | null>(null);
 
   const [editingCaddieId, setEditingCaddieId] = useState<number | null>(null);
   const [caddieName, setCaddieName] = useState('');
@@ -224,6 +226,14 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
       setCurrentView('dashboard');
     }
   }, [canViewTransactions, currentView]);
+
+  useEffect(() => {
+    const nextDrafts: Record<number, string> = {};
+    clubs.forEach((club) => {
+      nextDrafts[club.id] = String(club.ratePerPlayer);
+    });
+    setClubRateDrafts(nextDrafts);
+  }, [clubs]);
 
   const filteredCaddies = useMemo(() => {
     const search = caddieSearch.trim().toLowerCase();
@@ -593,13 +603,18 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
   };
 
   const updateClubRate = async (id: number, ratePerPlayer: number) => {
-    if (!canManageClubRates) return;
-    if (!Number.isFinite(ratePerPlayer) || ratePerPlayer <= 0) return;
+    if (!canManageClubRates) return false;
+    if (!Number.isFinite(ratePerPlayer) || ratePerPlayer <= 0) return false;
+
+    setUpdatingClubRateId(id);
     const ok = await updateClub(id, { ratePerPlayer });
+    setUpdatingClubRateId(null);
+
     if (!ok) {
       alert('Failed to update club rate.');
-      return;
+      return false;
     }
+
     setClubs((prev) => prev.map((club) => (club.id === id ? { ...club, ratePerPlayer } : club)));
 
     const clubLabel = clubs.find((club) => club.id === id)?.name ?? `Club ${id}`;
@@ -611,6 +626,20 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
       `Updated club rate to Ksh ${ratePerPlayer}`,
       { ratePerPlayer },
     );
+
+    return true;
+  };
+
+  const submitClubRateUpdate = async (clubId: number) => {
+    const draftValue = clubRateDrafts[clubId] ?? '';
+    const parsedRate = Number(draftValue);
+
+    if (!Number.isFinite(parsedRate) || parsedRate <= 0) {
+      alert('Please enter a valid positive rate before updating.');
+      return;
+    }
+
+    await updateClubRate(clubId, parsedRate);
   };
 
   const removeClub = async (id: number) => {
@@ -1458,11 +1487,24 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                       <input
                         type="number"
                         min={1}
-                        value={club.ratePerPlayer}
-                        onChange={(e) => updateClubRate(club.id, Number(e.target.value))}
+                        value={clubRateDrafts[club.id] ?? String(club.ratePerPlayer)}
+                        onChange={(e) =>
+                          setClubRateDrafts((prev) => ({
+                            ...prev,
+                            [club.id]: e.target.value,
+                          }))
+                        }
                         className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
                         disabled={!canManageClubRates}
                       />
+                      <button
+                        type="button"
+                        onClick={() => submitClubRateUpdate(club.id)}
+                        disabled={!canManageClubRates || updatingClubRateId === club.id}
+                        className="whitespace-nowrap rounded-lg bg-[#0f281e] px-3 py-2 text-sm font-medium text-white hover:bg-green-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {updatingClubRateId === club.id ? 'Updating...' : 'Update'}
+                      </button>
                     </div>
                   </div>
                 </div>
