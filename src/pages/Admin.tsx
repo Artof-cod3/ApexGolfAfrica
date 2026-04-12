@@ -13,6 +13,7 @@ import {
   deleteClub,
   fetchAuditTrail,
   fetchAdminLoginHistory,
+  fetchBookingByReference,
   getOauthAdminFromSession,
   loginAdmin,
   loginWithGoogle,
@@ -113,6 +114,7 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 
   const [transactionSearch, setTransactionSearch] = useState('');
   const [transactionStatusFilter, setTransactionStatusFilter] = useState<'all' | Booking['status']>('all');
+  const [reconcilingTransactions, setReconcilingTransactions] = useState(false);
 
   const getSessionTtl = (role: 'admin' | 'super-admin') =>
     role === 'super-admin' ? SUPER_ADMIN_SESSION_TTL_MS : ADMIN_SESSION_TTL_MS;
@@ -568,6 +570,63 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
       `Booking status changed to ${status}`,
       { status },
     );
+  };
+
+  const reconcileBooking = async (bookingId: number) => {
+    if (!canViewTransactions) return;
+
+    const booking = bookings.find((item) => item.id === bookingId);
+    if (!booking) return;
+
+    const reference = booking.bookingReference ?? `APX-${booking.id}`;
+    const latest = await fetchBookingByReference(reference);
+
+    if (!latest) {
+      alert('Could not recheck this transaction right now.');
+      return;
+    }
+
+    setBookings((prev) => prev.map((item) => (item.id === latest.id ? latest : item)));
+
+    if (latest.status !== booking.status) {
+      await logAudit(
+        'transaction_reconciled',
+        'booking',
+        latest.id,
+        reference,
+        `Reconciled transaction status to ${latest.status}`,
+        { previousStatus: booking.status, nextStatus: latest.status },
+      );
+    }
+
+    if (latest.status === booking.status) {
+      alert(`Transaction is still marked as ${latest.status}. If payment already went through, manual confirmation is required.`);
+    }
+  };
+
+  const reconcilePendingTransactions = async () => {
+    if (!canViewTransactions) return;
+
+    setReconcilingTransactions(true);
+    try {
+      const pendingBookings = bookings.filter((booking) => booking.status === 'pending');
+      let updatedCount = 0;
+
+      for (const booking of pendingBookings) {
+        const reference = booking.bookingReference ?? `APX-${booking.id}`;
+        const latest = await fetchBookingByReference(reference);
+        if (latest && latest.status !== booking.status) {
+          updatedCount += 1;
+          setBookings((prev) => prev.map((item) => (item.id === latest.id ? latest : item)));
+        }
+      }
+
+      alert(updatedCount > 0
+        ? `${updatedCount} pending transaction(s) were updated from the database.`
+        : 'No pending transactions changed. If a payment already cleared but still shows pending, the webhook needs to be replayed or the booking must be manually confirmed.');
+    } finally {
+      setReconcilingTransactions(false);
+    }
   };
 
   const addClub = async (event: React.FormEvent) => {
@@ -1978,6 +2037,13 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
               </div>
               <div className="flex gap-2">
                 <button
+                  onClick={() => void reconcilePendingTransactions()}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  disabled={reconcilingTransactions}
+                >
+                  {reconcilingTransactions ? 'Reconciling...' : 'Reconcile Pending'}
+                </button>
+                <button
                   onClick={exportTransactionsCsv}
                   className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
@@ -2095,16 +2161,27 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
                             </select>
                           </td>
                           <td className="px-3 sm:px-6 py-3 sm:py-4">
-                            <button
-                              onClick={() => deleteBooking(booking.id)}
-                              className="text-red-600 hover:text-red-700 disabled:opacity-50"
-                              disabled={!canEditBookings}
-                              title="Delete booking"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
+                            <div className="flex items-center gap-2">
+                              {booking.status === 'pending' && (
+                                <button
+                                  onClick={() => void reconcileBooking(booking.id)}
+                                  className="rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                                  title="Recheck payment status"
+                                >
+                                  Recheck Payment
+                                </button>
+                              )}
+                              <button
+                                onClick={() => deleteBooking(booking.id)}
+                                className="text-red-600 hover:text-red-700 disabled:opacity-50"
+                                disabled={!canEditBookings}
+                                title="Delete booking"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
