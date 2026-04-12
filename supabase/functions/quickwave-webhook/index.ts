@@ -28,7 +28,7 @@ const corsHeaders = {
 };
 
 const SUCCESS_STATUSES = new Set(['success', 'successful', 'paid', 'completed', 'confirmed']);
-const CANCELLED_STATUSES = new Set(['failed', 'cancelled', 'canceled', 'declined', 'reversed']);
+const CANCELLED_STATUSES = new Set(['failed', 'cancelled', 'canceled', 'declined', 'reversed', 'voided']);
 
 const PAYMENT_PROVIDER = 'quickwave';
 const EXPECTED_CURRENCY = 'KES';
@@ -72,8 +72,16 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 function extractReference(payload: any): string | null {
-  const direct = payload?.reference || payload?.booking_reference || payload?.tx_ref || payload?.order_id;
-  const nested = payload?.data?.reference || payload?.data?.booking_reference || payload?.data?.tx_ref || payload?.metadata?.booking_reference;
+  const direct = payload?.reference || payload?.booking_reference || payload?.tx_ref || payload?.order_id || payload?.merchant_reference;
+  const nested =
+    payload?.data?.reference ||
+    payload?.data?.booking_reference ||
+    payload?.data?.tx_ref ||
+    payload?.data?.merchant_reference ||
+    payload?.metadata?.booking_reference ||
+    payload?.metadata?.reference ||
+    payload?.meta?.booking_reference ||
+    payload?.meta?.reference;
   const candidate = direct ?? nested;
 
   if (typeof candidate !== 'string') return null;
@@ -82,7 +90,17 @@ function extractReference(payload: any): string | null {
 }
 
 function extractStatus(payload: any): string {
-  const raw = payload?.status || payload?.payment_status || payload?.data?.status || payload?.event || payload?.type || '';
+  const raw =
+    payload?.status ||
+    payload?.payment_status ||
+    payload?.data?.status ||
+    payload?.data?.payment_status ||
+    payload?.event ||
+    payload?.event_name ||
+    payload?.type ||
+    payload?.data?.event ||
+    payload?.data?.type ||
+    '';
   return String(raw).trim().toLowerCase();
 }
 
@@ -97,15 +115,67 @@ function extractEventId(payload: any): string | null {
 }
 
 function extractPaidAmount(payload: any): number | null {
-  const amount = payload?.amount ?? payload?.paid_amount ?? payload?.data?.amount ?? payload?.data?.paid_amount;
-  const parsed = Number(amount);
+  const amount =
+    payload?.amount ??
+    payload?.paid_amount ??
+    payload?.paidAmount ??
+    payload?.data?.amount ??
+    payload?.data?.paid_amount ??
+    payload?.data?.paidAmount ??
+    payload?.data?.transaction?.amount ??
+    payload?.transaction?.amount;
+
+  const normalizedAmount =
+    typeof amount === 'string'
+      ? amount.replace(/,/g, '').replace(/[^0-9.-]/g, '')
+      : amount;
+
+  const parsed = Number(normalizedAmount);
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
   return parsed;
 }
 
 function extractCurrency(payload: any): string {
-  const currency = payload?.currency ?? payload?.data?.currency ?? EXPECTED_CURRENCY;
-  return String(currency).trim().toUpperCase();
+  const currency =
+    payload?.currency ??
+    payload?.data?.currency ??
+    payload?.data?.transaction?.currency ??
+    payload?.transaction?.currency ??
+    EXPECTED_CURRENCY;
+
+  const normalized = String(currency).trim().toUpperCase();
+  if (normalized === 'KSH') return 'KES';
+  return normalized;
+}
+
+function normalizeStatusForComparison(status: string): string {
+  return status.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
+}
+
+function isSuccessStatus(status: string): boolean {
+  const normalized = normalizeStatusForComparison(status);
+  if (SUCCESS_STATUSES.has(normalized)) return true;
+
+  return (
+    normalized.includes('success') ||
+    normalized.includes('successful') ||
+    normalized.includes('paid') ||
+    normalized.includes('complete') ||
+    normalized.includes('confirm')
+  );
+}
+
+function isCancelledStatus(status: string): boolean {
+  const normalized = normalizeStatusForComparison(status);
+  if (CANCELLED_STATUSES.has(normalized)) return true;
+
+  return (
+    normalized.includes('fail') ||
+    normalized.includes('cancel') ||
+    normalized.includes('declin') ||
+    normalized.includes('revers') ||
+    normalized.includes('void')
+  );
 }
 
 function normalizeSignature(rawSignature: string): string {
@@ -121,10 +191,10 @@ async function sha256Hex(payload: string): Promise<string> {
 
 function createStatusEmailHtml(booking: BookingRow, targetStatus: 'confirmed' | 'cancelled'): string {
   const isConfirmed = targetStatus === 'confirmed';
-  const badge = isConfirmed ? 'Confirmed' : 'Payment Cancelled';
+  const badge = isConfirmed ? 'Payment Verified' : 'Payment Cancelled';
   const title = isConfirmed ? 'Booking Confirmed' : 'Booking Cancelled';
   const subtitle = isConfirmed
-    ? 'Thank you for choosing ApexGolf Africa'
+    ? 'Your payment has been verified and your booking is confirmed.'
     : 'Your payment was not completed. You can place a new booking anytime.';
   const amountLabel = isConfirmed ? 'Total Paid' : 'Cancelled Amount';
   const accent = isConfirmed ? '#2f3729' : '#7a2e2e';
@@ -291,7 +361,10 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    if (!SUCCESS_STATUSES.has(status) && !CANCELLED_STATUSES.has(status)) {
+    const isSuccess = isSuccessStatus(status);
+    const isCancelled = isCancelledStatus(status);
+
+    if (!isSuccess && !isCancelled) {
       return new Response(JSON.stringify({ ok: true, ignored: `Unhandled status: ${status}` }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -389,7 +462,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    if (SUCCESS_STATUSES.has(status)) {
+    if (isSuccess) {
       if (!webhookAmount) {
         await admin
           .from('quickwave_webhook_events')
@@ -403,7 +476,12 @@ Deno.serve(async (req: Request) => {
       }
 
       const bookingTotal = Number(booking.total ?? 0);
-      const amountMatches = Math.round(webhookAmount * 100) === Math.round(bookingTotal * 100);
+      const amountAsMajor = webhookAmount;
+      const amountAsMinor = webhookAmount / 100;
+      const amountMatches =
+        Math.round(amountAsMajor * 100) === Math.round(bookingTotal * 100) ||
+        Math.round(amountAsMinor * 100) === Math.round(bookingTotal * 100) ||
+        Math.abs(amountAsMajor - bookingTotal) < 0.01;
       const currencyMatches = webhookCurrency === EXPECTED_CURRENCY;
 
       if (!amountMatches || !currencyMatches) {
@@ -427,7 +505,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const targetStatus: 'confirmed' | 'cancelled' = SUCCESS_STATUSES.has(status) ? 'confirmed' : 'cancelled';
+    const targetStatus: 'confirmed' | 'cancelled' = isSuccess ? 'confirmed' : 'cancelled';
 
     if (booking.status === targetStatus) {
       await admin
@@ -466,10 +544,10 @@ Deno.serve(async (req: Request) => {
       payment_provider: PAYMENT_PROVIDER,
       payment_reference: eventId,
       payment_status_updated_at: new Date().toISOString(),
-      payment_currency: SUCCESS_STATUSES.has(status) ? webhookCurrency : EXPECTED_CURRENCY,
+      payment_currency: isSuccess ? webhookCurrency : EXPECTED_CURRENCY,
     };
 
-    if (SUCCESS_STATUSES.has(status) && webhookAmount) {
+    if (isSuccess && webhookAmount) {
       updatePayload.payment_amount = webhookAmount;
       updatePayload.payment_confirmed_at = new Date().toISOString();
     }

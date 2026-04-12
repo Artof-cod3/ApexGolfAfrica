@@ -1,5 +1,5 @@
-export const SUPPORT_WHATSAPP_NUMBER = '0745751869';
-export const SUPPORT_WHATSAPP_E164 = '254745751869';
+export const SUPPORT_WHATSAPP_NUMBER = import.meta.env.VITE_SUPPORT_WHATSAPP_NUMBER || '0700000000';
+export const SUPPORT_WHATSAPP_E164 = import.meta.env.VITE_SUPPORT_WHATSAPP_E164 || '254700000000';
 export const SUPPORT_EMAIL = 'apexgolfafrica@gmail.com';
 
 export const SUPPORT_WHATSAPP_URL = `https://wa.me/${SUPPORT_WHATSAPP_E164}`;

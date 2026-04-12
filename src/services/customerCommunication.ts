@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { Booking } from '../types/booking';
 import type { Caddie, Club } from '../types/entities';
+import { SUPPORT_WHATSAPP_E164 } from '../constants/support';
 
 type CommunicationTemplate = 'booking_pending_payment' | 'payment_confirmed' | 'payment_cancelled';
 
@@ -32,6 +33,7 @@ export async function notifyCustomerForBooking(input: NotifyBookingInput): Promi
     time: booking.time,
     players: booking.players,
     total: booking.total,
+    supportPhone: `+${SUPPORT_WHATSAPP_E164}`,
   };
 
   const { error } = await supabase.functions.invoke('send-booking-receipt', {

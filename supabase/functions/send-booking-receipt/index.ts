@@ -76,18 +76,18 @@ function buildEmailTemplate(payload: Required<ReceiptBody>): { subject: string; 
 
   const headerByTemplate: Record<Required<ReceiptBody>['templateType'], { badge: string; title: string; subtitle: string; subject: string; amountLabel: string; accent: string }> = {
     booking_pending_payment: {
-      badge: 'Pending Payment',
+      badge: 'Payment Pending',
       title: 'Booking Reserved',
-      subtitle: 'Complete your payment to confirm your tee time.',
+      subtitle: 'Your booking is reserved while payment is completed.',
       subject: `ApexGolf Booking Reserved: ${payload.bookingReference}`,
       amountLabel: 'Amount Due',
       accent: '#9a7f30',
     },
     payment_confirmed: {
-      badge: 'Confirmed',
+      badge: 'Payment Verified',
       title: 'Booking Confirmed',
-      subtitle: 'Thank you for choosing ApexGolf Africa.',
-      subject: `ApexGolf Booking Confirmation: ${payload.bookingReference}`,
+      subtitle: 'Your payment has been verified and your booking is confirmed.',
+      subject: `ApexGolf Payment Verified: ${payload.bookingReference}`,
       amountLabel: 'Total Paid',
       accent: '#2f3729',
     },
@@ -214,7 +214,7 @@ Deno.serve(async (req: Request) => {
       time: String(body.time ?? ''),
       players: Number(body.players ?? 0),
       total: Number(body.total ?? 0),
-      supportPhone: String(body.supportPhone ?? ''),
+      supportPhone: String(body.supportPhone ?? Deno.env.get('CUSTOMER_CARE_PHONE') ?? Deno.env.get('SUPPORT_WHATSAPP_NUMBER') ?? '+254700000000'),
     };
 
     const { subject, html } = buildEmailTemplate(normalizedPayload);
