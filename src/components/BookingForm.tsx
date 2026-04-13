@@ -215,6 +215,34 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
     const finalizePayment = async () => {
       if (!pending) return;
 
+      const cancelBookingFlow = async (message: string) => {
+        const cancelledBookingId = pending!.bookingId;
+        await updateBooking(cancelledBookingId, { status: 'cancelled' });
+
+        const latest = await fetchBookingByReference(pending!.bookingReference);
+        if (latest) {
+          setBookings((prev) => {
+            const exists = prev.some((booking) => booking.id === latest.id);
+            if (!exists) return [latest, ...prev];
+            return prev.map((booking) => (booking.id === latest.id ? latest : booking));
+          });
+
+          void notifyCustomerForBooking({
+            booking: latest,
+            clubs,
+            caddies,
+            templateType: 'payment_cancelled',
+          });
+        } else {
+          setBookings((prev) => prev.map((booking) => (
+            booking.id === cancelledBookingId ? { ...booking, status: 'cancelled' } : booking
+          )));
+        }
+
+        setPaymentNotice('');
+        alert(message);
+      };
+
       if (paymentStatus === 'success') {
         setPaymentNotice('Payment received. Finalizing your booking confirmation...');
         let result: 'confirmed' | 'cancelled' | 'pending' = 'pending';
@@ -257,21 +285,12 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
           setShowSuccess(true);
           setPaymentNotice('');
         } else if (result === 'cancelled') {
-          alert('Payment was not completed. Your booking was cancelled.');
-          setPaymentNotice('');
+          await cancelBookingFlow('Payment was not completed. Your booking was cancelled.');
         } else {
-          setBookingRef(pending.bookingReference);
-          setConfirmationState('verifying');
-          setShowSuccess(true);
-          setPaymentNotice('Payment submitted. Waiting for provider confirmation...');
+          await cancelBookingFlow('Payment was not verified, so this booking has been cancelled. Please retry payment to confirm your booking.');
         }
       } else {
-        const cancelledBookingId = pending.bookingId;
-        await updateBooking(cancelledBookingId, { status: 'cancelled' });
-        setBookings((prev) => prev.map((booking) => (
-          booking.id === cancelledBookingId ? { ...booking, status: 'cancelled' } : booking
-        )));
-        alert('Payment was cancelled. You can retry checkout to complete your booking.');
+        await cancelBookingFlow('Payment was cancelled. You can retry checkout to complete your booking.');
       }
 
       sessionStorage.removeItem(PENDING_PAYMENT_STORAGE_KEY);
@@ -279,7 +298,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
     };
 
     void finalizePayment();
-  }, [setBookings]);
+  }, [caddies, clubs, setBookings]);
 
   const getSelectedClubRate = () => {
     const selectedClub = clubs.find((club) => club.id === clubId);
