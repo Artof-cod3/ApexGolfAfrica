@@ -929,6 +929,32 @@ export async function updateBooking(id: number, updates: Partial<Booking>): Prom
   return true;
 }
 
+export async function forceConfirmBookingPayment(id: number, amount?: number): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke('confirm-booking-admin', {
+      body: {
+        bookingId: id,
+        amount,
+      },
+    });
+
+    if (error) {
+      console.error('Error invoking confirm-booking-admin:', error);
+      return false;
+    }
+
+    if (!data?.ok) {
+      console.error('confirm-booking-admin responded with ok=false:', data?.error || 'Unknown error');
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Exception in forceConfirmBookingPayment:', err);
+    return false;
+  }
+}
+
 export async function deleteBooking(id: number): Promise<boolean> {
   const { error } = await supabase
     .from('bookings')

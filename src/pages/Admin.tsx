@@ -14,6 +14,7 @@ import {
   fetchAuditTrail,
   fetchAdminLoginHistory,
   fetchBookingByReference,
+  forceConfirmBookingPayment,
   getOauthAdminFromSession,
   loginAdmin,
   loginWithGoogle,
@@ -555,9 +556,27 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
 
   const updateStatus = async (id: number, status: Booking['status']) => {
     if (!canEditBookings) return;
+
+    if (status === 'confirmed') {
+      const current = bookings.find((item) => item.id === id);
+      const forced = await forceConfirmBookingPayment(id, current?.total);
+      if (forced) {
+        setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: 'confirmed' } : b)));
+        await logAudit(
+          'booking_status_force_confirmed',
+          'booking',
+          id,
+          current?.bookingReference ?? `APX-${id}`,
+          'Manual status update confirmed via service-role fallback.',
+          { requestedStatus: status },
+        );
+        return;
+      }
+    }
+
     const ok = await updateBooking(id, { status });
     if (!ok) {
-      alert('Failed to update booking status.');
+      alert('Failed to update booking status. Please recheck the payment and try Force Confirm through Recheck Payment.');
       return;
     }
     setBookings(bookings.map((b) => (b.id === id ? { ...b, status } : b)));
@@ -599,8 +618,27 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
       );
     }
 
+    if (latest.status === booking.status && latest.status === 'pending') {
+      const forced = await forceConfirmBookingPayment(latest.id, latest.total);
+      if (forced) {
+        const refreshed = await fetchBookingByReference(reference);
+        if (refreshed) {
+          setBookings((prev) => prev.map((item) => (item.id === refreshed.id ? refreshed : item)));
+        }
+        await logAudit(
+          'transaction_force_confirmed',
+          'booking',
+          latest.id,
+          reference,
+          'Automatically force-confirmed pending booking after payment reconciliation.',
+          { previousStatus: latest.status, nextStatus: 'confirmed' },
+        );
+        return;
+      }
+    }
+
     if (latest.status === booking.status) {
-      alert(`Transaction is still marked as ${latest.status}. If payment already went through, manual confirmation is required.`);
+      alert(`Transaction is still marked as ${latest.status}.`);
     }
   };
 
@@ -618,6 +656,15 @@ const Admin: React.FC<Props> = ({ bookings, setBookings, clubs, setClubs, caddie
         if (latest && latest.status !== booking.status) {
           updatedCount += 1;
           setBookings((prev) => prev.map((item) => (item.id === latest.id ? latest : item)));
+        } else if (latest && latest.status === 'pending') {
+          const forced = await forceConfirmBookingPayment(latest.id, latest.total);
+          if (forced) {
+            const refreshed = await fetchBookingByReference(reference);
+            if (refreshed) {
+              updatedCount += 1;
+              setBookings((prev) => prev.map((item) => (item.id === refreshed.id ? refreshed : item)));
+            }
+          }
         }
       }
 

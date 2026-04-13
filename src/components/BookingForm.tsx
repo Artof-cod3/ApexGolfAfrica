@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Booking } from '../types/booking';
 import type { Caddie, Club } from '../types/entities';
 import { createBooking, fetchBookingByReference, getLastCreateBookingError, updateBooking } from '../services/database';
-import { initiateQuickwaveCheckout } from '../services/quickwave';
+import { initiateQuickwaveCheckout, verifyQuickwavePayment } from '../services/quickwave';
 import { notifyCustomerForBooking } from '../services/customerCommunication';
 
 type Props = {
@@ -54,6 +54,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   const [copiedRef, setCopiedRef] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [paymentNotice, setPaymentNotice] = useState('');
+  const [confirmationState, setConfirmationState] = useState<'confirmed' | 'verifying'>('confirmed');
   
   // Form state
   const [clubId, setClubId] = useState<number | null>(null);
@@ -138,7 +139,38 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const paymentStatus = params.get('payment');
+    const statusCandidates = [
+      params.get('payment'),
+      params.get('status'),
+      params.get('payment_status'),
+      params.get('transaction_status'),
+      params.get('state'),
+      params.get('result'),
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim().toLowerCase());
+
+    const statusHint = statusCandidates[0] ?? '';
+    const isSuccessReturn = statusCandidates.some((status) =>
+      ['success', 'successful', 'paid', 'completed', 'confirmed'].some((hint) => status.includes(hint)),
+    );
+    const isCancelledReturn = statusCandidates.some((status) =>
+      ['cancel', 'canceled', 'cancelled', 'failed', 'declined', 'reversed', 'voided'].some((hint) => status.includes(hint)),
+    );
+    const paymentStatus = isSuccessReturn ? 'success' : (isCancelledReturn ? 'cancelled' : null);
+    const receiptNumber =
+      params.get('receipt') ||
+      params.get('receipt_number') ||
+      params.get('receiptNumber') ||
+      params.get('mpesa_receipt') ||
+      params.get('mpesaReceipt') ||
+      '';
+    const transactionId =
+      params.get('transaction_id') ||
+      params.get('transactionId') ||
+      params.get('payment_reference') ||
+      params.get('paymentReference') ||
+      '';
 
     if (!paymentStatus) return;
 
@@ -185,7 +217,29 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
 
       if (paymentStatus === 'success') {
         setPaymentNotice('Payment received. Finalizing your booking confirmation...');
-        const result = await waitForWebhookConfirmation(pending.bookingReference);
+        let result: 'confirmed' | 'cancelled' | 'pending' = 'pending';
+
+        try {
+          const verification = await verifyQuickwavePayment({
+            bookingReference: pending.bookingReference,
+            bookingId: pending.bookingId,
+            receiptNumber: receiptNumber || undefined,
+            transactionId: transactionId || undefined,
+            statusHint,
+          });
+
+          if (verification.status === 'confirmed') {
+            result = 'confirmed';
+          } else if (verification.status === 'cancelled') {
+            result = 'cancelled';
+          }
+        } catch (verificationError) {
+          console.warn('Quickwave return verification failed, falling back to webhook polling.', verificationError);
+        }
+
+        if (result === 'pending') {
+          result = await waitForWebhookConfirmation(pending.bookingReference);
+        }
 
         if (result === 'confirmed') {
           const latest = await fetchBookingByReference(pending.bookingReference);
@@ -199,13 +253,16 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
           }
 
           setBookingRef(pending.bookingReference);
+          setConfirmationState('confirmed');
           setShowSuccess(true);
           setPaymentNotice('');
         } else if (result === 'cancelled') {
           alert('Payment was not completed. Your booking was cancelled.');
           setPaymentNotice('');
         } else {
-          alert('Payment is still being verified. Refresh shortly or use Find Booking with your reference.');
+          setBookingRef(pending.bookingReference);
+          setConfirmationState('verifying');
+          setShowSuccess(true);
           setPaymentNotice('Payment submitted. Waiting for provider confirmation...');
         }
       } else {
@@ -389,9 +446,11 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
             <span className="text-3xl">⛳</span>
           </div>
           
-          <h2 className="font-serif text-3xl text-gray-900 mb-2">You're Booked!</h2>
+          <h2 className="font-serif text-3xl text-gray-900 mb-2">{confirmationState === 'confirmed' ? "You're Booked!" : 'Payment Received'}</h2>
           <p className="text-gray-500 text-sm mb-6 max-w-65">
-            Your Apex experience is confirmed. We'll send full details to your email and WhatsApp shortly.
+            {confirmationState === 'confirmed'
+              ? "Your Apex experience is confirmed. We'll send full details to your email and WhatsApp shortly."
+              : 'We received your payment return and are verifying with Quickwave. Your booking reference is ready below.'}
           </p>
           
           <div className="bg-[#c5a059]/20 px-8 py-3 rounded-lg mb-6">
@@ -415,7 +474,9 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
           </button>
 
           <p className="text-xs text-gray-500 mb-8 max-w-70 leading-relaxed">
-            Save this reference. Your caddie will greet you at the clubhouse entrance with your Cool Box and all hired equipment ready.
+            {confirmationState === 'confirmed'
+              ? 'Save this reference. Your caddie will greet you at the clubhouse entrance with your Cool Box and all hired equipment ready.'
+              : 'Save this reference. If verification takes longer than expected, use Find Booking with this reference and our team will assist immediately.'}
           </p>
 
           <button 

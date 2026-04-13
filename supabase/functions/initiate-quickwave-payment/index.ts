@@ -68,6 +68,7 @@ Deno.serve(async (req: Request) => {
     const privateKey = (Deno.env.get('QUICKWAVE_PRIVATE_KEY') || '').trim();
     const walletId = (Deno.env.get('QUICKWAVE_WALLET_ID') || '').trim();
     const apiBaseUrl = (Deno.env.get('QUICKWAVE_API_BASE_URL') || '').trim();
+    const webhookUrl = (Deno.env.get('QUICKWAVE_WEBHOOK_URL') || '').trim();
     const hasKeyAuth = Boolean(publicKey && privateKey && walletId);
     const hasApiKeyAuth = Boolean(apiKey);
 
@@ -131,6 +132,7 @@ Deno.serve(async (req: Request) => {
         currency: body.currency || 'KES',
         reference: body.bookingReference,
         redirectUrl: body.successUrl,
+        ...(webhookUrl ? { callbackUrl: webhookUrl, callback_url: webhookUrl, webhookUrl: webhookUrl, webhook_url: webhookUrl } : {}),
         phoneNumber: normalizePhone(body.phone),
         ...(body.identifier ? { identifier: body.identifier } : {}),
         ...(typeof body.real === 'boolean' ? { real: body.real } : {}),
