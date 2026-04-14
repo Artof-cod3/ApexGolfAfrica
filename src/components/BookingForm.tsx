@@ -107,10 +107,26 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   }, [bookings, date, time]);
 
   useEffect(() => {
-    if (caddieId && unavailableCaddieIds.has(caddieId)) {
-      setCaddieId(null);
-    }
+    // Keep the user's selected caddie stable during checkout.
+    // Conflicts are validated again before booking creation.
   }, [caddieId, unavailableCaddieIds]);
+
+  const runWithRetry = async <T,>(task: () => Promise<T>, retries = 2): Promise<T> => {
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      try {
+        return await task();
+      } catch (error) {
+        lastError = error;
+        if (attempt < retries) {
+          await new Promise((resolve) => window.setTimeout(resolve, 500 * (attempt + 1)));
+        }
+      }
+    }
+
+    throw lastError;
+  };
 
   const scrollToStepTop = () => {
     contentRef.current?.scrollTo({ top: 0, behavior: 'auto' });
@@ -368,7 +384,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
     let savedBooking: Booking | null = null;
 
     try {
-      savedBooking = await createBooking(bookingPayload);
+      savedBooking = await runWithRetry(() => createBooking(bookingPayload));
       if (!savedBooking) {
         const reason = getLastCreateBookingError();
         if (reason) {
@@ -405,7 +421,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
       const successUrl = `${baseReturnUrl}?payment=success&bookingId=${createdBooking.id}`;
       const cancelUrl = `${baseReturnUrl}?payment=cancelled&bookingId=${createdBooking.id}`;
 
-      const payment = await initiateQuickwaveCheckout({
+      const payment = await runWithRetry(() => initiateQuickwaveCheckout({
         bookingReference: generatedReference,
         amount: createdBooking.total,
         currency: 'KES',
@@ -415,7 +431,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
         phone: normalizedPhone,
         successUrl,
         cancelUrl,
-      });
+      }));
 
       window.location.href = payment.checkoutUrl;
     } catch (error) {
@@ -430,7 +446,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
       }
 
       sessionStorage.removeItem(PENDING_PAYMENT_STORAGE_KEY);
-      alert('Unable to start Quickwave payment right now. Please try again.');
+      alert('Unable to start Quickwave payment right now. Please check your internet, refresh once, and try again.');
     } finally {
       setIsPaying(false);
     }
