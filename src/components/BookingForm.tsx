@@ -187,6 +187,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
       params.get('payment_reference') ||
       params.get('paymentReference') ||
       '';
+    const hasPaymentProof = Boolean(receiptNumber || transactionId);
 
     if (!paymentStatus) return;
 
@@ -282,7 +283,11 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
         }
 
         if (result === 'pending') {
-          result = await waitForWebhookConfirmation(pending.bookingReference);
+          if (hasPaymentProof) {
+            result = await waitForWebhookConfirmation(pending.bookingReference);
+          } else {
+            result = 'cancelled';
+          }
         }
 
         if (result === 'confirmed') {
