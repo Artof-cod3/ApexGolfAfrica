@@ -90,6 +90,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
   const [requests, setRequests] = useState('');
   const formTopRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
 
   const unavailableCaddieIds = useMemo(() => {
     if (!date || !time) return new Set<number>();
@@ -341,13 +342,15 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
           setConfirmationState('confirmed');
           setShowSuccess(true);
           setPaymentNotice('');
-        } else if (result === 'cancelled') {
-          await cancelBookingFlow('Payment was not completed. Your booking was cancelled.');
         } else {
           setBookingRef('');
           setConfirmationState('verifying');
           setShowSuccess(false);
-          setPaymentNotice('Payment is being verified. This can take a few seconds.');
+          if (result === 'cancelled') {
+            setPaymentNotice('Payment callback is still being reconciled. Please wait while we verify this transaction.');
+          } else {
+            setPaymentNotice('Payment is being verified. This can take a few seconds.');
+          }
           alert('Payment is being verified. Your booking number will appear only after confirmation.');
         }
       } else {
@@ -677,13 +680,39 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
               
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">DATE OF ROUND</label>
-                <input 
-                  type="date" 
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  min={getTodayDateIso()}
-                  className="w-full rounded-xl border-2 border-gray-200 p-4 text-base focus:outline-none focus:border-[#c9a962] focus:ring-4 focus:ring-[#c9a962]/10"
-                />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 rounded-xl border-2 border-gray-200 bg-white p-2 focus-within:border-[#c9a962] focus-within:ring-4 focus-within:ring-[#c9a962]/10">
+                    <input
+                      ref={dateInputRef}
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      min={getTodayDateIso()}
+                      className="w-full rounded-lg border-0 bg-transparent p-2 text-base focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (dateInputRef.current?.showPicker) {
+                          dateInputRef.current.showPicker();
+                        } else {
+                          dateInputRef.current?.focus();
+                        }
+                      }}
+                      className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-[#0f281e] hover:bg-[#f8f6f1]"
+                    >
+                      Open Calendar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDate(getTodayDateIso())}
+                      className="rounded-lg border border-[#c9a962]/40 px-3 py-2 text-sm font-semibold text-[#0f281e] hover:bg-[#f8f6f1]"
+                    >
+                      Today
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500">Only today and future dates are allowed.</p>
+                </div>
               </div>
 
               <div className="mb-6">
