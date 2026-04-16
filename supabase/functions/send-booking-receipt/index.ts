@@ -135,7 +135,7 @@ function buildEmailTemplate(payload: Required<ReceiptBody>): { subject: string; 
 
         <div style="padding:14px 20px 0;">
           <div style="background:#f6f7f4;border-left:4px solid #6b8259;border-radius:0 10px 10px 0;padding:12px 12px 12px 14px;">
-            <p style="margin:0;font-size:13px;line-height:1.6;color:#435239;">Need help? Contact support at ${payload.supportPhone || '+254700000000'}.</p>
+            <p style="margin:0;font-size:13px;line-height:1.6;color:#435239;">Need help? Contact support at ${payload.supportPhone || '+254745751869'}.</p>
           </div>
         </div>
 
@@ -214,7 +214,7 @@ Deno.serve(async (req: Request) => {
       time: String(body.time ?? ''),
       players: Number(body.players ?? 0),
       total: Number(body.total ?? 0),
-      supportPhone: String(body.supportPhone ?? Deno.env.get('CUSTOMER_CARE_PHONE') ?? Deno.env.get('SUPPORT_WHATSAPP_NUMBER') ?? '+254700000000'),
+      supportPhone: String(body.supportPhone ?? Deno.env.get('CUSTOMER_CARE_PHONE') ?? Deno.env.get('SUPPORT_WHATSAPP_NUMBER') ?? '+254745751869'),
     };
 
     const { subject, html } = buildEmailTemplate(normalizedPayload);
