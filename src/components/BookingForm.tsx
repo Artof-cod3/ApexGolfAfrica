@@ -47,6 +47,19 @@ function normalizeKenyanPhone(value: string): string {
   return value.trim();
 }
 
+function getTodayDateIso(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isPastBookingDate(value: string): boolean {
+  if (!value) return false;
+  return value < getTodayDateIso();
+}
+
 const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies }) => {
   const [step, setStep] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -214,7 +227,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
     }
 
     const waitForWebhookConfirmation = async (reference: string): Promise<'confirmed' | 'cancelled' | 'pending'> => {
-      for (let attempt = 0; attempt < 12; attempt += 1) {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
         const latest = await fetchBookingByReference(reference);
 
         if (latest?.status === 'confirmed') {
@@ -285,7 +298,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
         }
 
         if (result === 'pending') {
-          if (hasPaymentProof) {
+          if (hasPaymentProof || paymentStatus === 'success') {
             result = await waitForWebhookConfirmation(pending.bookingReference);
           } else {
             result = 'cancelled';
@@ -310,7 +323,10 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
         } else if (result === 'cancelled') {
           await cancelBookingFlow('Payment was not completed. Your booking was cancelled.');
         } else {
-          await cancelBookingFlow('Payment was not verified, so this booking has been cancelled. Please retry payment to confirm your booking.');
+          setBookingRef(pending.bookingReference);
+          setConfirmationState('verifying');
+          setShowSuccess(true);
+          setPaymentNotice('Payment is being verified. This can take a few seconds.');
         }
       } else {
         await cancelBookingFlow('Payment was cancelled. You can retry checkout to complete your booking.');
@@ -363,6 +379,12 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
 
   const handleSubmit = async () => {
     setIsPaying(true);
+
+    if (isPastBookingDate(date)) {
+      alert('Please select today or a future date for your booking.');
+      setIsPaying(false);
+      return;
+    }
 
     if (!caddieId) {
       alert('Please select a caddie before continuing.');
@@ -472,7 +494,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
 
   const canProceed = () => {
     switch(step) {
-      case 1: return Boolean(clubId && date && time);
+      case 1: return Boolean(clubId && date && time && !isPastBookingDate(date));
       case 2: return Boolean(caddieId && !unavailableCaddieIds.has(caddieId));
       case 3: return true; // Equipment optional
       case 4: return Boolean(firstName && lastName && email && phone && nationality);
@@ -637,6 +659,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
                   type="date" 
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
+                  min={getTodayDateIso()}
                   className="w-full rounded-xl border-2 border-gray-200 p-4 text-base focus:outline-none focus:border-[#c9a962] focus:ring-4 focus:ring-[#c9a962]/10"
                 />
               </div>

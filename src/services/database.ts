@@ -780,6 +780,12 @@ export async function fetchBookings(): Promise<Booking[]> {
 export async function createBooking(booking: Omit<Booking, 'id' | 'createdAt'>): Promise<Booking | null> {
   lastCreateBookingError = null;
 
+  const todayIso = new Date().toISOString().slice(0, 10);
+  if (booking.date < todayIso) {
+    lastCreateBookingError = 'Past dates are not allowed. Please choose today or a future date.';
+    return null;
+  }
+
   const lookups = await getBookingLookups();
   const selectedCaddieName = lookups.caddieNameById.get(booking.caddieId) ?? null;
   const pendingCutoffIso = new Date(Date.now() - PENDING_BOOKING_LOCK_MINUTES * 60 * 1000).toISOString();
