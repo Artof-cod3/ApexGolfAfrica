@@ -168,6 +168,14 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const embeddedParams = new URLSearchParams();
+    const embeddedBookingId = params.get('bookingId') || params.get('booking_id') || '';
+    if (embeddedBookingId.includes('?')) {
+      const embeddedQuery = embeddedBookingId.slice(embeddedBookingId.indexOf('?') + 1);
+      const nested = new URLSearchParams(embeddedQuery);
+      nested.forEach((value, key) => embeddedParams.set(key, value));
+    }
+
     const statusCandidates = [
       params.get('payment'),
       params.get('status'),
@@ -175,6 +183,12 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
       params.get('transaction_status'),
       params.get('state'),
       params.get('result'),
+      embeddedParams.get('payment'),
+      embeddedParams.get('status'),
+      embeddedParams.get('payment_status'),
+      embeddedParams.get('transaction_status'),
+      embeddedParams.get('state'),
+      embeddedParams.get('result'),
     ]
       .filter(Boolean)
       .map((value) => String(value).trim().toLowerCase());
@@ -195,12 +209,19 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
       params.get('receiptNumber') ||
       params.get('mpesa_receipt') ||
       params.get('mpesaReceipt') ||
+      embeddedParams.get('receipt') ||
+      embeddedParams.get('receipt_number') ||
+      embeddedParams.get('receiptNumber') ||
       '';
     const transactionId =
       params.get('transaction_id') ||
       params.get('transactionId') ||
       params.get('payment_reference') ||
       params.get('paymentReference') ||
+      embeddedParams.get('transaction_id') ||
+      embeddedParams.get('transactionId') ||
+      embeddedParams.get('payment_reference') ||
+      embeddedParams.get('paymentReference') ||
       '';
     const hasPaymentProof = Boolean(receiptNumber || transactionId);
 
@@ -300,10 +321,8 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
         }
 
         if (result === 'pending') {
-          if (hasPaymentProof || paymentStatus === 'success') {
+          if (hasPaymentProof || paymentStatus === 'success' || paymentStatus === 'unknown') {
             result = await waitForWebhookConfirmation(pending.bookingReference);
-          } else {
-            result = 'cancelled';
           }
         }
 
@@ -325,10 +344,11 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
         } else if (result === 'cancelled') {
           await cancelBookingFlow('Payment was not completed. Your booking was cancelled.');
         } else {
-          setBookingRef(pending.bookingReference);
+          setBookingRef('');
           setConfirmationState('verifying');
-          setShowSuccess(true);
+          setShowSuccess(false);
           setPaymentNotice('Payment is being verified. This can take a few seconds.');
+          alert('Payment is being verified. Your booking number will appear only after confirmation.');
         }
       } else {
         await cancelBookingFlow('Payment was cancelled. You can retry checkout to complete your booking.');
