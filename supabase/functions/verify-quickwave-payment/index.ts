@@ -107,6 +107,7 @@ Deno.serve(async (req: Request) => {
     const receiptNumber = String(body.receiptNumber ?? '').trim();
     const transactionId = String(body.transactionId ?? '').trim();
     const statusHint = normalizeStatus(body.statusHint);
+    const hasPaymentProof = Boolean(receiptNumber || transactionId);
 
     if (!bookingReference && !bookingId) {
       return new Response(JSON.stringify({ error: 'bookingReference or bookingId is required.' }), {
@@ -222,7 +223,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!verificationStatus && statusHint) {
-      verificationStatus = statusHint;
+      if (isCancelledStatus(statusHint)) {
+        verificationStatus = statusHint;
+      } else if (isSuccessStatus(statusHint) && hasPaymentProof) {
+        verificationStatus = statusHint;
+      }
     }
 
     let nextStatus: 'confirmed' | 'cancelled' | 'pending' = 'pending';
@@ -230,6 +235,10 @@ Deno.serve(async (req: Request) => {
       nextStatus = 'confirmed';
     } else if (isCancelledStatus(verificationStatus)) {
       nextStatus = 'cancelled';
+    }
+
+    if (nextStatus === 'confirmed' && !hasPaymentProof) {
+      nextStatus = 'pending';
     }
 
     if (nextStatus === 'pending') {

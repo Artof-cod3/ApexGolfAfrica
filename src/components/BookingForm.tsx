@@ -173,7 +173,9 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
     const isCancelledReturn = statusCandidates.some((status) =>
       ['cancel', 'canceled', 'cancelled', 'failed', 'declined', 'reversed', 'voided'].some((hint) => status.includes(hint)),
     );
-    const paymentStatus = isSuccessReturn ? 'success' : (isCancelledReturn ? 'cancelled' : null);
+    const callbackReturn = params.get('payment_callback') === '1';
+    const paymentStatus: 'success' | 'cancelled' | 'unknown' | null =
+      isSuccessReturn ? 'success' : (isCancelledReturn ? 'cancelled' : (callbackReturn ? 'unknown' : null));
     const receiptNumber =
       params.get('receipt') ||
       params.get('receipt_number') ||
@@ -260,7 +262,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
         alert(message);
       };
 
-      if (paymentStatus === 'success') {
+      if (paymentStatus === 'success' || paymentStatus === 'unknown') {
         setPaymentNotice('Payment received. Finalizing your booking confirmation...');
         let result: 'confirmed' | 'cancelled' | 'pending' = 'pending';
 
@@ -270,7 +272,7 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
             bookingId: pending.bookingId,
             receiptNumber: receiptNumber || undefined,
             transactionId: transactionId || undefined,
-            statusHint,
+            statusHint: paymentStatus === 'success' ? statusHint : '',
           });
 
           if (verification.status === 'confirmed') {
@@ -423,8 +425,9 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
       sessionStorage.setItem(PENDING_PAYMENT_STORAGE_KEY, JSON.stringify(pendingSession));
 
       const baseReturnUrl = `${window.location.origin}${window.location.pathname}`;
-      const successUrl = `${baseReturnUrl}?payment=success&bookingId=${createdBooking.id}`;
-      const cancelUrl = `${baseReturnUrl}?payment=cancelled&bookingId=${createdBooking.id}`;
+      const callbackUrl = `${baseReturnUrl}?payment_callback=1&bookingId=${createdBooking.id}`;
+      const successUrl = callbackUrl;
+      const cancelUrl = callbackUrl;
 
       const payment = await runWithRetry(() => initiateQuickwaveCheckout({
         bookingReference: generatedReference,
