@@ -279,22 +279,24 @@ const BookingForm: React.FC<Props> = ({ bookings, setBookings, clubs, caddies })
         setPaymentNotice('Payment received. Finalizing your booking confirmation...');
         let result: 'confirmed' | 'cancelled' | 'pending' = 'pending';
 
-        try {
-          const verification = await verifyQuickwavePayment({
-            bookingReference: pending.bookingReference,
-            bookingId: pending.bookingId,
-            receiptNumber: receiptNumber || undefined,
-            transactionId: transactionId || undefined,
-            statusHint: paymentStatus === 'success' ? statusHint : '',
-          });
+        if (hasPaymentProof) {
+          try {
+            const verification = await verifyQuickwavePayment({
+              bookingReference: pending.bookingReference,
+              bookingId: pending.bookingId,
+              receiptNumber: receiptNumber || undefined,
+              transactionId: transactionId || undefined,
+              statusHint: paymentStatus === 'success' ? statusHint : '',
+            });
 
-          if (verification.status === 'confirmed') {
-            result = 'confirmed';
-          } else if (verification.status === 'cancelled') {
-            result = 'cancelled';
+            if (verification.status === 'confirmed') {
+              result = 'confirmed';
+            } else if (verification.status === 'cancelled') {
+              result = 'cancelled';
+            }
+          } catch (verificationError) {
+            console.warn('Quickwave return verification failed, falling back to webhook polling.', verificationError);
           }
-        } catch (verificationError) {
-          console.warn('Quickwave return verification failed, falling back to webhook polling.', verificationError);
         }
 
         if (result === 'pending') {

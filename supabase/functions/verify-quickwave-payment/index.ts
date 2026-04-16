@@ -241,6 +241,10 @@ Deno.serve(async (req: Request) => {
       nextStatus = 'pending';
     }
 
+    if (nextStatus === 'cancelled' && !hasPaymentProof && !isCancelledStatus(statusHint)) {
+      nextStatus = 'pending';
+    }
+
     if (nextStatus === 'pending') {
       return new Response(
         JSON.stringify({
